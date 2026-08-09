@@ -1,12 +1,5 @@
-.env
-*.patch
-proof_*.txt
-.venv/
-venv/
-__pycache__/
-*.py[cod]
+.env 
+venv/ 
+__pycache__/ 
+*.pyc 
 .pytest_cache/
-.ruff_cache/
-.streamlit/secrets.toml
-.DS_Store
-*.egg-info/
