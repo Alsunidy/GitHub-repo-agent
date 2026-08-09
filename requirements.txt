@@ -1,0 +1,18 @@
+# --- نواة الـ graph (المسار الأول) ---
+langgraph>=1.2,<2
+langchain-core>=1.0,<2
+pydantic>=2.7,<3
+python-dotenv>=1.0
+
+# --- مزوّد الـ LLM ---
+# الافتراضي anthropic. للتبديل: غيّر LLM_PROVIDER في .env وثبّت سطر مزوّدك.
+langchain-anthropic>=1.0,<2
+# langchain-openai>=1.0,<2
+# langchain-google-genai>=3.0,<4
+
+# --- الأدوات والواجهة والاختبارات (المسار الثاني) ---
+requests>=2.32
+fastapi>=0.115
+uvicorn[standard]>=0.30
+streamlit>=1.38
+pytest>=8.0
