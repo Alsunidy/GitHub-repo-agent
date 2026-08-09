@@ -1,4 +1,6 @@
 .env
+*.patch
+proof_*.txt
 .venv/
 venv/
 __pycache__/
