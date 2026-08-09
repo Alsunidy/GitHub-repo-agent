@@ -36,7 +36,18 @@ class AgentState(TypedDict):
     # --- المخرجات النهائية ---
     report: str                   # تقرير Markdown بلغة المستخدم
     issue_url: Optional[str]      # رابط البلاغ بعد فتحه، أو None
+
+    # --- تعديل ١ (المسار الأول) — إضافي، لا يكسر أي حقل قائم ---
+    issue_title: str              # عنوان البلاغ المقترح — يكتبه node التقرير
+    issue_body: str               # نص البلاغ المقترح — يكتبه node التقرير
+    approved: Optional[bool]      # None=لم يُسأل | True=وافق | False=رفض
+    supervisor_log: Annotated[list[str], operator.add]   # أثر القرارات (تراكمي)
 ```
+
+> **تعديل ١ — أُضيفت أربعة حقول.** بدون `issue_title` و `issue_body` لا يعرف
+> `/approve` ماذا يفتح، وبدون `approved` لا يعرف الـ graph نتيجة الموافقة.
+> و`supervisor_log` يغطّي طلب البريف بإظهار التتبّع في الديمو.
+> الحقول القديمة لم تتغيّر. التفاصيل في `HANDOFF.md`.
 
 ### شكل `repo_data`
 ```python

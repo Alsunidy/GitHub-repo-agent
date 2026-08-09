@@ -1,0 +1,24 @@
+# ASCII only: pip on Windows reads this file with the system code page (cp1252),
+# and any non-ASCII byte here crashes `pip install -r` before it starts.
+
+# --- graph core (track 1) ---
+langgraph>=1.2,<2
+langchain-core>=1.0,<2
+pydantic>=2.7,<3
+python-dotenv>=1.0
+
+# --- LLM provider ---
+# Default is openai. openrouter uses this same package (it is an
+# OpenAI-compatible gateway), so no extra install is needed for it.
+# To switch to anthropic or google: change LLM_PROVIDER in .env and
+# uncomment the matching line below.
+langchain-openai>=1.0,<2
+# langchain-anthropic>=1.0,<2
+# langchain-google-genai>=3.0,<4
+
+# --- tools, UI and tests (track 2) ---
+requests>=2.32
+fastapi>=0.115
+uvicorn[standard]>=0.30
+streamlit>=1.38
+pytest>=8.0
