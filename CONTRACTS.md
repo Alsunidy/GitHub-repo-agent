@@ -126,7 +126,9 @@ def parse_requirements(text: str) -> list[tuple[str, str]]:
 
 def check_vulnerabilities(requirements_text: str, limit: int = 10) -> list[dict]:
     """يستعلم OSV.dev لكل حزمة. يرجع قائمة عناصر بالشكل:
-    {"package": str, "version": str, "vuln_ids": list[str], "summary": str}
+    {"package": str, "version": str, "vuln_ids": list[str], "total_count": int, "summary": str}
+    حيث vuln_ids محدودة بأول 5 معرّفات (لتقليل حجم البيانات الممرّرة للوكلاء)،
+    total_count هو العدد الكلي الحقيقي للثغرات، وsummary هو ملخص أول ثغرة فقط.
     وعند فشل الاستعلام لحزمة:
     {"package": str, "version": str, "error": str}
     لا يرمي استثناءً — الأخطاء تُسجَّل داخل النتائج."""
