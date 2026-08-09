@@ -1,15 +1,15 @@
-"""نسخ وهمية مؤقتة من قطع المسار الثاني — أداة تطوير فقط.
+"""Temporary fakes of the track 2 pieces -- a development aid only.
 
 ╔══════════════════════════════════════════════════════════════════════╗
-║  يُحذف هذا الملف بالكامل عند نقطة الالتقاء الأولى.                    ║
-║  البريف يمنع صراحةً أي أداة ترجع بيانات معلّبة في النسخة النهائية:    ║
-║  "No tool may be a stub that returns canned data."                    ║
-║  قائمة الحذف: هذا الملف + كتل try/except ImportError في               ║
-║  graph/guardrail.py و graph/fetch.py و graph/build.py                 ║
+║  DELETE THIS ENTIRE FILE at the first integration point.             ║
+║  The brief forbids any tool that returns canned data in the final    ║
+║  build: "No tool may be a stub that returns canned data."            ║
+║  Deletion list: this file, plus the try/except ImportError blocks in ║
+║  graph/guardrail.py, graph/fetch.py and graph/build.py.              ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
-كل دالة هنا تطابق توقيعها في CONTRACTS.md حرفياً، حتى ينزل الكود الحقيقي
-مكانها بلا أي تعديل على الـ graph.
+Every function here matches its signature in CONTRACTS.md exactly, so the real
+code drops in with no change to the graph.
 """
 
 import re
@@ -18,11 +18,11 @@ import re
 
 
 class RepoNotFound(Exception):
-    """المستودع غير موجود أو خاص."""
+    """The repository does not exist, or is private."""
 
 
 class MissingToken(Exception):
-    """GITHUB_TOKEN غير مضبوط."""
+    """GITHUB_TOKEN is not set."""
 
 
 _URL_RE = re.compile(
@@ -31,17 +31,17 @@ _URL_RE = re.compile(
 
 
 def parse_repo_url(url: str) -> tuple[str, str] | None:
-    """يرجع (owner, repo) لو الرابط رابط مستودع GitHub صالح، وإلا None."""
+    """Return (owner, repo) for a valid GitHub repository URL, else None."""
     match = _URL_RE.match((url or "").strip())
     return (match.group(1), match.group(2)) if match else None
 
 
 def fetch_repo_data(owner: str, repo: str) -> dict:
-    """بيانات وهمية. اسم المستودع يحدد السيناريو — لاختبار قرارات المشرف."""
+    """Fake data. The repo name picks the scenario, for testing supervisor decisions."""
     if repo == "does-not-exist":
-        raise RepoNotFound(f"{owner}/{repo} غير موجود أو خاص")
+        raise RepoNotFound(f"{owner}/{repo} does not exist or is private")
 
-    if repo == "bare":  # مستودع بلا تبعيات ولا كود ولا بلاغات
+    if repo == "bare":  # no dependencies, no code, no issues
         return {
             "meta": {
                 "full_name": f"{owner}/{repo}",
@@ -77,7 +77,7 @@ def fetch_repo_data(owner: str, repo: str) -> dict:
             {
                 "number": 19,
                 "title": "يتعطل عند الإدخال الفارغ",
-                "body": "نفس المشكلة أعلاه بالعربية.",
+                "body": "نفس المشكلة أعلاه بالعربية.",   # the same bug filed in Arabic
                 "created_at": "2026-05-03T08:00:00Z",
                 "comments": 0,
                 "labels": [],
@@ -89,11 +89,11 @@ def fetch_repo_data(owner: str, repo: str) -> dict:
 
 
 def open_issue(owner: str, repo: str, title: str, body: str) -> str:
-    """لا يفتح شيئاً — يرجع رابطاً وهمياً."""
+    """Opens nothing -- returns a fake link."""
     return f"https://github.com/{owner}/{repo}/issues/999"
 
 
-# ------------------------------------------------------- nodes المسار الثاني
+# ------------------------------------------------------------- track 2 nodes
 
 
 def _finding(agent: str, severity: str, title: str, detail: str, evidence: list[str]) -> dict:

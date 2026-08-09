@@ -1,7 +1,7 @@
-# معمارية النظام — الجزء الثاني من البريف (٢٠% من الدرجة)
+# System architecture -- Part 2 of the brief (20% of the grade)
 
-> المخطط أدناه مولَّد من الـ graph المُصرَّف نفسه عبر
-> `python scripts/export_architecture.py` — فلا يمكن أن يخالف الكود.
+> The diagram below is generated from the compiled graph itself via
+> `python scripts/export_architecture.py`, so it cannot contradict the code.
 
 ```mermaid
 graph TD;
@@ -31,100 +31,104 @@ graph TD;
 	publish --> __end__;
 ```
 
-**الحلقة هي جوهر التصميم:** المشرف لا يشغّل الوكلاء الثلاثة بترتيب ثابت، بل يعود
-إليه التحكّم بعد كل وكيل ليقرّر — بناءً على ما وُجد حتى الآن — من يعمل تالياً أو
-متى نتوقف.
+**The loop is the heart of the design:** the supervisor does not run the three
+agents in a fixed order. Control returns to it after every agent so it can
+decide -- from what has been found so far -- who runs next, or whether to stop.
 
 ---
 
-## ١. الـ nodes ومسؤولياتها
+## 1. Nodes and their responsibilities
 
-| node | المسؤولية | الملف |
+| Node | Responsibility | File |
 |---|---|---|
-| `guardrail` | يتحقق أن المدخل رابط مستودع GitHub صالح، ويرفض ما عداه برسالة مؤدبة بلغة المستخدم قبل أي استدعاء خارجي | `graph/guardrail.py` |
-| `fetch` | يجلب بيانات المستودع مرة واحدة ويضعها في الـ state | `graph/fetch.py` |
-| `supervisor` | يحسب أي وكيل يملك مادة ليعمل عليها، ثم يسأل النموذج عن الأولوية والتوقف، ثم يتحقق من قراره قبل تنفيذه | `graph/supervisor.py` |
-| `security` | يفحص ملفات التبعيات في OSV.dev، ويمسح الكود بحثاً عن مفاتيح مكشوفة | `graph/agents.py` |
-| `issues` | يفرز البلاغات: المكرر — بما فيه المرفوع مرتين بالعربية والإنجليزية — والمهمل والأولويات | `graph/agents.py` |
-| `docs` | يقيس README مقابل أربعة معايير: ما المشروع، التثبيت، التشغيل، الترخيص | `graph/agents.py` |
-| `report` | يجمّع الملاحظات المتراكمة ويصوغ التقرير بلغة المستخدم، ويكتب عنوان البلاغ ونصّه | `graph/report.py` |
-| `publish` | الوحيد الذي يكتب في العالم الخارجي — لا يعمل إلا بعد موافقة بشرية صريحة | `graph/build.py` |
+| `guardrail` | Verifies the input is a valid GitHub repository URL and rejects anything else with a polite message in the user's language, before any external call | `graph/guardrail.py` |
+| `fetch` | Fetches the repository data once and puts it in the state | `graph/fetch.py` |
+| `supervisor` | Computes which agents have material to work on, asks the model for priority and stopping, then validates its answer before acting on it | `graph/supervisor.py` |
+| `security` | Checks dependency files against OSV.dev and scans source files for exposed secrets | `graph/agents.py` |
+| `issues` | Triages open issues: duplicates -- including the same bug filed in both Arabic and English -- stale items, and priority | `graph/agents.py` |
+| `docs` | Grades the README against four criteria: what the project is, installation, usage, licence | `graph/agents.py` |
+| `report` | Assembles the accumulated findings into a report in the user's language, and writes the proposed issue title and body | `graph/report.py` |
+| `publish` | The only node that writes to the outside world -- runs only after explicit human approval | `graph/build.py` |
 
-## ٢. المسارات الشرطية — وما تفحصه بالضبط
+## 2. Conditional edges -- and exactly what each inspects
 
-| الدالة | ما تفحصه | المخرجات الممكنة |
+| Function | What it inspects | Possible outcomes |
 |---|---|---|
-| `route_after_guardrail` | هل `rejection_reason` ليس `None`؟ | `rejected → END` \| `fetch` |
-| `route_after_fetch` | هل ملأ node الجلب `rejection_reason`؟ | `failed → END` \| `supervisor` |
-| `route_from_supervisor` | قيمة `next_agent` — أهي اسم وكيل أم `"done"`؟ | `security` \| `issues` \| `docs` \| `report` |
+| `route_after_guardrail` | Is `rejection_reason` not `None`? | `rejected → END` \| `fetch` |
+| `route_after_fetch` | Did the fetch node set `rejection_reason`? | `failed → END` \| `supervisor` |
+| `route_from_supervisor` | The value of `next_agent` -- an agent name, or `"done"`? | `security` \| `issues` \| `docs` \| `report` |
 
-اثنان ينهيان التنفيذ مبكراً، والثالث هو الحلقة. كلها تغيّر المسار فعلياً لا شكلياً.
+Two end the run early; the third is the loop. All three genuinely change the
+path rather than decorating it.
 
-## ٣. الـ State — ما يتراكم وما يُستبدل
+## 3. The State -- what accumulates and what is overwritten
 
-| الحقل | النوع | السلوك | من يكتبه |
+| Field | Type | Behaviour | Written by |
 |---|---|---|---|
-| `repo_url` | `str` | مدخل | المستخدم |
-| `language` | `str` | مدخل — `"en"` أو `"ar"` | المستخدم |
-| `owner` / `repo` | `str` | يُستبدل | `guardrail` |
-| `rejection_reason` | `Optional[str]` | يُستبدل | `guardrail` · `fetch` |
-| `repo_data` | `dict` | يُكتب مرة واحدة | `fetch` |
-| `next_agent` | `str` | يُستبدل كل دورة | `supervisor` |
-| `agents_done` | `Annotated[list[str], add]` | **يتراكم** | كل وكيل يضيف اسمه |
-| `findings` | `Annotated[list[dict], add]` | **يتراكم** | كل وكيل |
-| `supervisor_log` | `Annotated[list[str], add]` | **يتراكم** | كل node — أثر التتبّع |
-| `report` | `str` | يُستبدل | `report` · مسارات الرفض |
-| `issue_title` / `issue_body` | `str` | يُستبدل | `report` |
-| `approved` | `Optional[bool]` | يضبطه الإنسان | الـ backend عند الاستئناف |
-| `issue_url` | `Optional[str]` | يُستبدل | `publish` |
+| `repo_url` | `str` | input | the user |
+| `language` | `str` | input -- `"en"` or `"ar"` | the user |
+| `owner` / `repo` | `str` | overwritten | `guardrail` |
+| `rejection_reason` | `Optional[str]` | overwritten | `guardrail` · `fetch` |
+| `repo_data` | `dict` | written once | `fetch` |
+| `next_agent` | `str` | overwritten each round | `supervisor` |
+| `agents_done` | `Annotated[list[str], add]` | **accumulates** | each agent adds its own name |
+| `findings` | `Annotated[list[dict], add]` | **accumulates** | each agent |
+| `supervisor_log` | `Annotated[list[str], add]` | **accumulates** | every node -- the decision trace |
+| `report` | `str` | overwritten | `report` · the rejection paths |
+| `issue_title` / `issue_body` | `str` | overwritten | `report` |
+| `approved` | `Optional[bool]` | set by the human | the backend on resume |
+| `issue_url` | `Optional[str]` | overwritten | `publish` |
 
-ثلاثة حقول فقط تتراكم عبر `operator.add`؛ البقية تُستبدل. هذا الفرق هو ما يسمح
-لثلاثة وكلاء بالكتابة في الـ state دون أن يمحو أحدهم عمل الآخر.
+Only three fields accumulate via `operator.add`; the rest are overwritten. That
+distinction is what lets three agents write into the state without one erasing
+another's work.
 
-## ٤. الأدوات والأنظمة الخارجية
+## 4. Tools and external systems
 
-| الأداة | مربوطة بـ | النظام الخارجي | ماذا تفعل |
+| Tool | Attached to | External system | What it does |
 |---|---|---|---|
-| `fetch_repo_data` | `fetch` | **GitHub REST** | البيانات الوصفية، README، البلاغات، ملفات التبعيات والكود |
-| `check_vulnerabilities` | `security` | **OSV.dev** | ثغرات معروفة لكل حزمة، مع معرّفات GHSA/CVE كدليل |
-| `scan_secrets` | `security` | محلي | أنماط المفاتيح المكشوفة، والمقتطف مقنَّع جزئياً |
-| `open_issue` | `publish` | **GitHub REST — كتابة** | يفتح بلاغاً حقيقياً — الفعل الوحيد غير القابل للتراجع |
+| `fetch_repo_data` | `fetch` | **GitHub REST** | metadata, README, open issues, dependency and code files |
+| `check_vulnerabilities` | `security` | **OSV.dev** | known vulnerabilities per installed package, with GHSA/CVE ids as evidence |
+| `scan_secrets` | `security` | local | known key patterns, with the snippet partially masked |
+| `open_issue` | `publish` | **GitHub REST -- write** | opens a real issue -- the one irreversible action |
 
-ثلاث أدوات تلمس نظاماً خارجياً حقيقياً، ولا واحدة منها ترجع بيانات معلّبة.
+Three tools reach a genuine external system, and none of them returns canned data.
 
-## ٥. الاستمرارية وتدخّل الإنسان
+## 5. Persistence and human intervention
 
-الـ graph مُصرَّف بـ `MemorySaver` و `interrupt_before=["publish"]`. عند وصول
-التنفيذ إلى `publish` يتوقّف ويُحفَظ تحت `thread_id`، فيقرأ المستخدم التقرير
-كاملاً **قبل** أن يُكتب أي شيء على مستودع الغير.
+The graph is compiled with `MemorySaver` and `interrupt_before=["publish"]`.
+When execution reaches `publish` it pauses and the state is saved under a
+`thread_id`, so the user reads the whole report **before** anything is written
+to someone else's repository.
 
-| الخطوة | ما يجري |
+| Step | What happens |
 |---|---|
-| `POST /analyze` | ينادي `invoke` فيتوقف الـ graph قبل النشر، ويرجع التقرير و `thread_id` بحالة `awaiting_approval` |
-| — انتظار — | الحالة محفوظة في الـ checkpointer. المستخدم يقرأ ويقرّر بلا حدّ زمني |
-| `POST /approve` | `update_state(config, {"approved": …})` ثم `invoke(None, config)` — يُستأنف من نقطة التوقف نفسها |
-| `approved = false` | يعمل `publish` ويخرج فوراً بـ `issue_url = None`. لا شيء يُكتب |
+| `POST /analyze` | Calls `invoke`; the graph pauses before publishing and returns the report plus a `thread_id` with status `awaiting_approval` |
+| -- waiting -- | The state lives in the checkpointer. The user reads and decides with no time limit |
+| `POST /approve` | `update_state(config, {"approved": ...})` then `invoke(None, config)` -- resumes from exactly where it paused |
+| `approved = false` | `publish` runs and exits immediately with `issue_url = None`. Nothing is written |
 
-## ٦. مسارات الفشل
+## 6. Failure paths
 
-| العطل | أين | التصرّف |
+| Failure | Where | Behaviour |
 |---|---|---|
-| رابط ليس مستودع GitHub | `guardrail` | رسالة رفض مؤدبة بلغة المستخدم، ونهاية فورية — بلا أي استدعاء خارجي |
-| `RepoNotFound` | `fetch` | يشرح أن المستودع غير موجود أو خاص، وينهي التنفيذ قبل تشغيل أي وكيل |
-| عطل شبكة أو حدّ استعلامات | `fetch` | يترجم الاستثناء لرسالة مفهومة، ويؤكّد أنها مشكلة عندنا لا ملاحظة على المستودع |
-| نجاح الأداة برجوع لا شيء | `fetch` | يعامَل كفشل: لا README ولا تبعيات ولا كود ⇒ لا شيء يُحلَّل |
-| الـ LLM غير متاح | `supervisor` | **لا يتوقف** — يسقط على ترتيب حتمي: الأمن ثم البلاغات ثم التوثيق |
-| النموذج يختار وكيلاً غير مؤهَّل أو منفَّذاً | `supervisor` | يُصحَّح القرار قبل التوجيه. ولو أراد التوقف قبل عمل أي وكيل، يُرفض — التقرير الفارغ ممنوع |
-| `MissingToken` عند النشر | `publish` | التقرير يبقى سليماً، و `issue_url = None` مع سبب واضح. فشل الكتابة لا يُسقط التحليل |
+| URL is not a GitHub repository | `guardrail` | A polite rejection in the user's language and an immediate end -- with no external call at all |
+| `RepoNotFound` | `fetch` | Explains the repository is missing or private, and ends before any agent runs |
+| Network fault or rate limit | `fetch` | Translates the exception into a readable message, and states it is a problem on our side, not a finding about the repository |
+| Tool succeeds but returns nothing | `fetch` | Treated as a failure: no README, no dependencies, no code means nothing to analyse |
+| The LLM is unavailable | `supervisor` | **Does not stop** -- falls back to a deterministic order: security, then issues, then docs |
+| The model picks an ineligible or already-run agent | `supervisor` | The decision is corrected before routing. And if it tries to stop before any agent ran, that is refused -- an empty report is not allowed |
+| `MissingToken` on publish | `publish` | The report survives intact and `issue_url = None` with a clear reason. A write failure never loses the analysis |
 
-القاعدة واحدة: النظام يشرح ما جرى **ولا يخترع نتيجة أبداً**.
+One rule throughout: the system explains what happened and **never invents a result**.
 
 ---
 
-## لماذا وكيل؟ — إخراج فعلي لا ادّعاء
+## Why an agent? -- real output, not a claim
 
-الترتيب الحتمي المكتوب في `_FALLBACK_ORDER` هو `security → issues → docs`.
-على مستودع الاختبار قرأ النموذج الإشارات وبدأ بـ `issues`، وعلّل اختياره:
+The deterministic order written in `_FALLBACK_ORDER` is
+`security → issues → docs`. On the test repository the model read the signals,
+started with `issues` instead, and justified it:
 
 ```
 supervisor: [llm] issues   — open issues that may be duplicates, which could
@@ -136,8 +140,8 @@ supervisor: [llm] docs     — the README is very short and likely lacks
 supervisor: [rule] done    — no eligible agent left
 ```
 
-استدعاء واحد بـ prompt ثابت لا يُنتج هذا، وسكربت بقواعد ثابتة كان سيشغّل الثلاثة
-بالترتيب نفسه على كل مستودع.
+A single call with a fixed prompt does not produce this, and a rule-based script
+would have run all three in the same order on every repository.
 
-**تكلفة هذا القرار مقيسة:** ١٣.٥% من توكِنات الدخل — أي ١.٢١ هللة للتحليل الواحد.
-التفاصيل في `docs/PRODUCT.md`، والسجل الكامل في `proof_graph.txt`.
+**The cost of that decision is measured:** 13.5% of input tokens -- about 1.21
+halalas per analysis. Details in `docs/PRODUCT.md`, full log in `proof_graph.txt`.

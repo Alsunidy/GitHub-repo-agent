@@ -1,17 +1,15 @@
-"""فحص منطق المشرف وحده — الأهلية، وتصحيح قرارات الـ LLM الخاطئة.
+"""Check the supervisor's logic alone -- eligibility, and correction of bad LLM answers.
 
     python scripts/smoke_supervisor.py
 
-لا يحتاج مفتاح LLM: نحقن قرارات وهمية مكان _ask_llm لنتحقق من أن الكود
-لا يثق بمخرَج النموذج في التوجيه.
+Needs no LLM key: we inject fake decisions in place of _ask_llm to verify that
+the code never lets a model output route unchecked.
 """
 
 import sys
 from pathlib import Path
 
-# انظر التعليق نفسه في smoke_graph.py
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.graph import supervisor as sup  # noqa: E402
@@ -37,7 +35,7 @@ def _state(repo_data: dict, done: list[str], log: list[str] | None = None) -> di
 
 
 def _run(repo_data, done, fake=None, log=None) -> str:
-    """يشغّل المشرف مع قرار LLM وهمي (أو بلا LLM إذا fake=None)."""
+    """Run the supervisor with a fake LLM decision (or with no LLM when fake is None)."""
     original = sup._ask_llm
     sup._ask_llm = fake or original
     try:
@@ -47,59 +45,59 @@ def _run(repo_data, done, fake=None, log=None) -> str:
 
 
 CASES = [
-    # (الوصف، المتوقَّع، الفعلي)
+    # (description, expected, actual)
     (
-        "الأهلية: بلا تبعيات ولا كود ⇒ وكيل الأمن غير مؤهَّل",
+        "eligibility: no dependencies and no code => security not eligible",
         ["issues", "docs"],
         sup._eligible_agents(sup._signals(NO_DEPS_NO_CODE), []),
     ),
     (
-        "الأهلية: بلا بلاغات مفتوحة ⇒ وكيل البلاغات غير مؤهَّل",
+        "eligibility: no open issues => issues agent not eligible",
         ["security", "docs"],
         sup._eligible_agents(sup._signals(NO_ISSUES), []),
     ),
     (
-        "الأهلية: المنفَّذ لا يُعاد",
+        "eligibility: an agent that already ran is never offered again",
         ["docs"],
         sup._eligible_agents(sup._signals(RICH), ["security", "issues"]),
     ),
     (
-        "بلا LLM ⇒ سقوط حتمي على الأخطر أولاً",
+        "no LLM => deterministic fallback, most severe first",
         "security",
         _run(RICH, []),
     ),
     (
-        "قرار LLM سليم يُحترم",
+        "a valid LLM choice is honoured",
         "docs",
         _run(RICH, [], fake=lambda *a: ("docs", "readme is empty")),
     ),
     (
-        "قرار LLM لوكيل منفَّذ مسبقاً ⇒ يُصحَّح",
+        "LLM picks an agent that already ran => corrected",
         "issues",
         _run(RICH, ["security"], fake=lambda *a: ("security", "loop me")),
     ),
     (
-        "قرار LLM لوكيل غير مؤهَّل ⇒ يُصحَّح",
+        "LLM picks an ineligible agent => corrected",
         "issues",
         _run(NO_DEPS_NO_CODE, [], fake=lambda *a: ("security", "nothing to scan")),
     ),
     (
-        "LLM يوقف قبل عمل أي وكيل ⇒ يُرفض، تقرير فارغ ممنوع",
+        "LLM stops before any agent ran => refused, empty reports are not allowed",
         "security",
         _run(RICH, [], fake=lambda *a: ("done", "looks fine")),
     ),
     (
-        "LLM يوقف بعد عمل وكيل ⇒ يُحترم",
+        "LLM stops after an agent ran => honoured",
         "done",
         _run(RICH, ["security"], fake=lambda *a: ("done", "enough for this repo")),
     ),
     (
-        "كل الوكلاء انتهوا ⇒ done",
+        "all agents finished => done",
         "done",
         _run(RICH, ["security", "issues", "docs"]),
     ),
     (
-        "حزام الأمان: دورات كثيرة ⇒ إنهاء قسري",
+        "safety belt: too many rounds => forced stop",
         "done",
         _run(RICH, [], log=["supervisor: x"] * sup._MAX_ROUNDS),
     ),
@@ -111,11 +109,11 @@ def main() -> int:
     for label, expected, actual in CASES:
         ok = expected == actual
         failed += not ok
-        print(f"  {'✓' if ok else '✗'}  {label}")
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
         if not ok:
-            print(f"      المتوقَّع: {expected!r}\n      الفعلي  : {actual!r}")
+            print(f"      expected: {expected!r}\n      actual  : {actual!r}")
 
-    print(f"\n{len(CASES) - failed}/{len(CASES)} نجحت")
+    print(f"\n{len(CASES) - failed}/{len(CASES)} passed")
     return 1 if failed else 0
 
 
