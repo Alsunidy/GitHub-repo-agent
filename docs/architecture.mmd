@@ -1,0 +1,33 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	guardrail(guardrail)
+	fetch(fetch)
+	supervisor(supervisor)
+	security(security)
+	issues(issues)
+	docs(docs)
+	report(report)
+	publish(publish<hr/><small><em>__interrupt = before</em></small>)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> guardrail;
+	docs --> supervisor;
+	fetch -. &nbsp;failed&nbsp; .-> __end__;
+	fetch -.-> supervisor;
+	guardrail -. &nbsp;rejected&nbsp; .-> __end__;
+	guardrail -.-> fetch;
+	issues --> supervisor;
+	report --> publish;
+	security --> supervisor;
+	supervisor -.-> docs;
+	supervisor -.-> issues;
+	supervisor -.-> report;
+	supervisor -.-> security;
+	publish --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
