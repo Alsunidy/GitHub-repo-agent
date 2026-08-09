@@ -10,6 +10,10 @@ import sys
 import uuid
 from pathlib import Path
 
+# المخرَج عربي: على ويندوز يُكتب stdout بترميز النظام (cp1252) عند التوجيه
+# إلى ملف، فينهار. نُثبّت UTF-8 قبل أول طباعة — يلزم لحفظ إثبات التنفيذ.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.graph.build import build_graph  # noqa: E402
