@@ -40,9 +40,17 @@ llm = get_llm(temperature=0)          # chat model جاهز
 llm = get_llm().with_structured_output(MyModel)   # مخرَج منظَّم
 ```
 
-المزوّد يُضبط من `LLM_PROVIDER` في `.env` (الافتراضي `anthropic`). التبديل إلى
-OpenAI أو Google = سطر واحد في `.env` + إلغاء تعليق سطر في `requirements.txt`،
-بلا لمس أي كود.
+المزوّد يُضبط من `LLM_PROVIDER` في `.env` (الافتراضي `openai`، الموديل
+`gpt-4o-mini`). المتاح: `openai` | `openrouter` | `anthropic` | `google`.
+التبديل = سطر واحد في `.env` + إلغاء تعليق سطر في `requirements.txt`، بلا لمس
+أي كود.
+
+قبل أي تشخيص للـ graph، تأكّد من المفتاح وحده:
+```bash
+python scripts/check_llm.py
+```
+يكشف أشهر خطأ: مفتاح من مزوّد موجَّه لخادم مزوّد آخر (مفاتيح OpenRouter تبدأ
+بـ `sk-or-v1` وترفضها OpenAI بـ 401).
 
 ---
 

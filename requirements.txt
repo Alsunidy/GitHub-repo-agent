@@ -8,10 +8,12 @@ pydantic>=2.7,<3
 python-dotenv>=1.0
 
 # --- LLM provider ---
-# Default is anthropic. To switch: change LLM_PROVIDER in .env and
-# uncomment your provider's line below.
-langchain-anthropic>=1.0,<2
-# langchain-openai>=1.0,<2
+# Default is openai. openrouter uses this same package (it is an
+# OpenAI-compatible gateway), so no extra install is needed for it.
+# To switch to anthropic or google: change LLM_PROVIDER in .env and
+# uncomment the matching line below.
+langchain-openai>=1.0,<2
+# langchain-anthropic>=1.0,<2
 # langchain-google-genai>=3.0,<4
 
 # --- tools, UI and tests (track 2) ---
