@@ -1,0 +1,132 @@
+From 8db1764bcf958572e776c211b1b7ddca668f77f3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 9 Aug 2026 08:42:25 +0000
+Subject: [PATCH] fix: make config files ASCII and force UTF-8 stdout for
+ Windows
+
+pip on Windows reads requirements.txt with the system code page (cp1252),
+so the Arabic comments crashed `pip install -r` with UnicodeDecodeError
+before a single package was resolved.
+
+- requirements.txt, .env.example: comments rewritten in ASCII
+- scripts: reconfigure stdout to UTF-8 so Arabic output survives being
+  redirected to a file, which is how the execution proof gets saved
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Lyxi4h2puG6zze3zMUi3jh
+---
+ .env.example                   | 16 +++++++++-------
+ requirements.txt               | 12 ++++++++----
+ scripts/export_architecture.py |  2 ++
+ scripts/smoke_graph.py         |  4 ++++
+ scripts/smoke_supervisor.py    |  3 +++
+ 5 files changed, 26 insertions(+), 11 deletions(-)
+
+diff --git a/.env.example b/.env.example
+index 5853836..cd45c65 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,12 +1,14 @@
+-# انسخ هذا الملف إلى .env واملأ القيم. لا تُضِف .env إلى git إطلاقاً.
++# ASCII only, same reason as requirements.txt: this file gets copied to .env and
++# read by tools that may not assume UTF-8 on Windows.
++# Copy to .env and fill in. Never commit .env.
+ 
+-# --- مزوّد الـ LLM ---
++# --- LLM provider ---
+ # anthropic | openai | google
+ LLM_PROVIDER=anthropic
+-# اختياري: يتجاوز الموديل الافتراضي للمزوّد
++# Optional: overrides the provider's default model
+ # LLM_MODEL=
+ 
+-# مفتاح المزوّد المختار فقط:
++# Only the key for the provider you chose:
+ # console.anthropic.com/settings/keys
+ ANTHROPIC_API_KEY=
+ # platform.openai.com/api-keys
+@@ -15,7 +17,7 @@ ANTHROPIC_API_KEY=
+ # GOOGLE_API_KEY=
+ 
+ # --- GitHub ---
+-# مطلوب لرفع حد الاستعلامات (60/ساعة بدونه) ولفتح البلاغات.
+-# github.com/settings/tokens → Fine-grained token
+-# الصلاحيات: Contents=Read، Issues=Read and write، Metadata=Read
++# Needed to raise the rate limit (60/hour without it) and to open issues.
++# github.com/settings/tokens -> Fine-grained token
++# Permissions: Contents=Read, Issues=Read and write, Metadata=Read
+ GITHUB_TOKEN=
+diff --git a/requirements.txt b/requirements.txt
+index 2399e7a..fc9b0af 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,16 +1,20 @@
+-# --- نواة الـ graph (المسار الأول) ---
++# ASCII only: pip on Windows reads this file with the system code page (cp1252),
++# and any non-ASCII byte here crashes `pip install -r` before it starts.
++
++# --- graph core (track 1) ---
+ langgraph>=1.2,<2
+ langchain-core>=1.0,<2
+ pydantic>=2.7,<3
+ python-dotenv>=1.0
+ 
+-# --- مزوّد الـ LLM ---
+-# الافتراضي anthropic. للتبديل: غيّر LLM_PROVIDER في .env وثبّت سطر مزوّدك.
++# --- LLM provider ---
++# Default is anthropic. To switch: change LLM_PROVIDER in .env and
++# uncomment your provider's line below.
+ langchain-anthropic>=1.0,<2
+ # langchain-openai>=1.0,<2
+ # langchain-google-genai>=3.0,<4
+ 
+-# --- الأدوات والواجهة والاختبارات (المسار الثاني) ---
++# --- tools, UI and tests (track 2) ---
+ requests>=2.32
+ fastapi>=0.115
+ uvicorn[standard]>=0.30
+diff --git a/scripts/export_architecture.py b/scripts/export_architecture.py
+index c570b49..3fb906e 100644
+--- a/scripts/export_architecture.py
++++ b/scripts/export_architecture.py
+@@ -9,6 +9,8 @@
+ import sys
+ from pathlib import Path
+ 
++sys.stdout.reconfigure(encoding="utf-8", errors="replace")
++
+ ROOT = Path(__file__).resolve().parents[1]
+ sys.path.insert(0, str(ROOT))
+ 
+diff --git a/scripts/smoke_graph.py b/scripts/smoke_graph.py
+index c519a76..f54d290 100644
+--- a/scripts/smoke_graph.py
++++ b/scripts/smoke_graph.py
+@@ -10,6 +10,10 @@ import sys
+ import uuid
+ from pathlib import Path
+ 
++# المخرَج عربي: على ويندوز يُكتب stdout بترميز النظام (cp1252) عند التوجيه
++# إلى ملف، فينهار. نُثبّت UTF-8 قبل أول طباعة — يلزم لحفظ إثبات التنفيذ.
++sys.stdout.reconfigure(encoding="utf-8", errors="replace")
++
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 
+ from backend.graph.build import build_graph  # noqa: E402
+diff --git a/scripts/smoke_supervisor.py b/scripts/smoke_supervisor.py
+index 38f8d2b..11f2dc2 100644
+--- a/scripts/smoke_supervisor.py
++++ b/scripts/smoke_supervisor.py
+@@ -9,6 +9,9 @@
+ import sys
+ from pathlib import Path
+ 
++# انظر التعليق نفسه في smoke_graph.py
++sys.stdout.reconfigure(encoding="utf-8", errors="replace")
++
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 
+ from backend.graph import supervisor as sup  # noqa: E402
+-- 
+2.43.0
+
