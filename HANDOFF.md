@@ -29,28 +29,25 @@ return {"report": ..., "issue_title": ..., "issue_body": ...}
 
 ---
 
-## ٢. مزوّد الـ LLM — محسوم
+## ٢. الـ LLM — محسوم
 
-لا تستورد مزوّداً بعينه. نادِ المصنع:
+المزوّد **OpenAI**، والموديل `gpt-4o-mini` (يتغيّر بـ `LLM_MODEL` في `.env`).
+
+لا تبنِ `ChatOpenAI` بنفسك. نادِ المصنع:
 
 ```python
 from backend.llm import get_llm
 
-llm = get_llm(temperature=0)          # chat model جاهز
+llm = get_llm(temperature=0)                      # chat model جاهز
 llm = get_llm().with_structured_output(MyModel)   # مخرَج منظَّم
 ```
 
-المزوّد يُضبط من `LLM_PROVIDER` في `.env` (الافتراضي `openai`، الموديل
-`gpt-4o-mini`). المتاح: `openai` | `openrouter` | `anthropic` | `google`.
-التبديل = سطر واحد في `.env` + إلغاء تعليق سطر في `requirements.txt`، بلا لمس
-أي كود.
+هكذا يبقى تغيير الموديل أو الإعدادات في ملف واحد بدل ستة.
 
 قبل أي تشخيص للـ graph، تأكّد من المفتاح وحده:
 ```bash
 python scripts/check_llm.py
 ```
-يكشف أشهر خطأ: مفتاح من مزوّد موجَّه لخادم مزوّد آخر (مفاتيح OpenRouter تبدأ
-بـ `sk-or-v1` وترفضها OpenAI بـ 401).
 
 ---
 

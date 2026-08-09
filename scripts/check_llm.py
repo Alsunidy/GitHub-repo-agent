@@ -1,9 +1,9 @@
-"""يتحقق أن مفتاح الـ LLM يعمل فعلاً — قبل اتهام الـ graph.
+"""يتحقق أن مفتاح OpenAI يعمل فعلاً — قبل اتهام الـ graph.
 
     python scripts/check_llm.py
 
-يطبع المزوّد والموديل، ثم ينفّذ استدعاءً واحداً بمخرَج منظَّم (نفس الآلية التي
-يستخدمها المشرف). نجاحه يعني أن مسار الـ LLM في المشرف سيعمل.
+ينفّذ استدعاءً واحداً بمخرَج منظَّم (نفس الآلية التي يستخدمها المشرف).
+نجاحه يعني أن مسار الـ LLM في المشرف سيعمل.
 """
 
 import sys
@@ -15,32 +15,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import os  # noqa: E402
 
 from backend.graph.supervisor import SupervisorDecision  # noqa: E402
-from backend.llm import _KEY_VARS, _MODELS, LLMUnavailable, get_llm  # noqa: E402
-
-# بادئات المفاتيح — أكثر خطأ شائع هو مفتاح من مزوّد موجَّه لخادم مزوّد آخر.
-_PREFIXES = {"sk-or-v1": "openrouter", "sk-ant-": "anthropic"}
+from backend.llm import DEFAULT_MODEL, LLMUnavailable, get_llm  # noqa: E402
 
 
 def main() -> int:
-    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    key_var = _KEY_VARS.get(provider, "?")
-    key = os.getenv(key_var, "")
-
-    print(f"المزوّد : {provider}")
-    print(f"الموديل : {os.getenv('LLM_MODEL') or _MODELS.get(provider, '?')}")
-    print(f"المفتاح : {key_var} = {'موجود' if key else 'غير موجود'}")
-
-    for prefix, owner in _PREFIXES.items():
-        if key.startswith(prefix) and owner != provider:
-            print(f"\n✗ المفتاح يبدأ بـ {prefix} ⇒ هذا مفتاح {owner}، "
-                  f"لكن LLM_PROVIDER={provider}.")
-            print(f"   الحل: اضبط LLM_PROVIDER={owner} في .env، أو استخدم مفتاح {provider}.")
-            return 1
+    key = os.getenv("OPENAI_API_KEY", "")
+    print(f"الموديل : {os.getenv('LLM_MODEL') or DEFAULT_MODEL}")
+    print(f"المفتاح : OPENAI_API_KEY = {'موجود' if key else 'غير موجود'}")
 
     try:
         llm = get_llm(temperature=0).with_structured_output(SupervisorDecision)
     except LLMUnavailable as exc:
-        print(f"\n✗ لم يُبنَ الـ LLM: {exc}")
+        print(f"\n✗ {exc}")
         return 1
 
     print("\nأرسل استدعاءً تجريبياً بمخرَج منظَّم...")
