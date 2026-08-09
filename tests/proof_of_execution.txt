@@ -1,0 +1,58 @@
+$ python -m pytest tests/ -v
+Date: 2026-08-09 15:42:01    
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\oiSal\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\oiSal\OneDrive\Desktop\GitHub-repo-agent
+plugins: anyio-4.14.1, langsmith-0.9.8
+collecting ... collected 46 items
+
+tests/test_agents.py::test_security_agent_llm_success_produces_one_finding_per_secret PASSED [  2%]
+tests/test_agents.py::test_security_agent_falls_back_deterministically_when_llm_fails PASSED [  4%]
+tests/test_agents.py::test_security_agent_reports_none_when_nothing_found_and_never_calls_llm PASSED [  6%]
+tests/test_agents.py::test_issues_agent_llm_success_reports_duplicates_and_priority PASSED [  8%]
+tests/test_agents.py::test_issues_agent_stale_detection_is_deterministic_when_llm_fails PASSED [ 10%]
+tests/test_agents.py::test_issues_agent_reports_none_when_nothing_to_report PASSED [ 13%]
+tests/test_agents.py::test_docs_agent_empty_readme_is_deterministic_and_never_calls_llm PASSED [ 15%]
+tests/test_agents.py::test_docs_agent_llm_success_reports_only_missing_criteria PASSED [ 17%]
+tests/test_agents.py::test_docs_agent_all_criteria_met_reports_complete PASSED [ 19%]
+tests/test_agents.py::test_docs_agent_falls_back_to_keyword_heuristics_when_llm_fails PASSED [ 21%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://github.com/owner/repo-expected0] PASSED [ 23%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[http://github.com/owner/repo-expected1] PASSED [ 26%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[github.com/owner/repo-expected2] PASSED [ 28%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://www.github.com/owner/repo-expected3] PASSED [ 30%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://github.com/owner/repo.git-expected4] PASSED [ 32%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://github.com/owner/repo/-expected5] PASSED [ 34%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://github.com/owner/repo/tree/main-expected6] PASSED [ 36%]
+tests/test_github_tools.py::test_parse_repo_url_accepts_valid_formats[https://github.com/owner/repo/issues/12-expected7] PASSED [ 39%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[] PASSED [ 41%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[None] PASSED [ 43%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[not a url at all] PASSED [ 45%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[https://gitlab.com/owner/repo] PASSED [ 47%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[https://github.com/owner] PASSED [ 50%]
+tests/test_github_tools.py::test_parse_repo_url_rejects_invalid_formats[https://github.com/] PASSED [ 52%]
+tests/test_github_tools.py::test_fetch_repo_data_raises_repo_not_found_on_404 PASSED [ 54%]
+tests/test_github_tools.py::test_open_issue_raises_missing_token_without_env_var PASSED [ 56%]
+tests/test_github_tools.py::test_open_issue_never_reaches_network_without_token PASSED [ 58%]
+tests/test_osv_tools.py::test_parse_requirements_keeps_only_exact_pins PASSED [ 60%]
+tests/test_osv_tools.py::test_parse_requirements_supports_extras PASSED  [ 63%]
+tests/test_osv_tools.py::test_parse_requirements_empty_text PASSED       [ 65%]
+tests/test_osv_tools.py::test_check_vulnerabilities_records_error_instead_of_raising_on_network_failure PASSED [ 67%]
+tests/test_osv_tools.py::test_check_vulnerabilities_one_package_failing_does_not_block_the_others PASSED [ 69%]
+tests/test_osv_tools.py::test_check_vulnerabilities_caps_vuln_ids_and_reports_total_count PASSED [ 71%]
+tests/test_report.py::test_report_node_returns_the_three_contract_keys PASSED [ 73%]
+tests/test_report.py::test_report_node_ranks_findings_by_severity_deterministically PASSED [ 76%]
+tests/test_report.py::test_report_node_all_none_findings_gives_healthy_report_without_llm PASSED [ 78%]
+tests/test_report.py::test_report_node_no_findings_at_all_gives_healthy_report_without_llm PASSED [ 80%]
+tests/test_report.py::test_report_node_falls_back_deterministically_when_llm_fails PASSED [ 82%]
+tests/test_report.py::test_report_node_skips_sections_for_agents_that_never_ran PASSED [ 84%]
+tests/test_secret_tools.py::test_scan_secrets_detects_all_four_known_formats PASSED [ 86%]
+tests/test_secret_tools.py::test_scan_secrets_masks_the_secret_value PASSED [ 89%]
+tests/test_secret_tools.py::test_scan_secrets_generic_pattern_for_password_and_api_key PASSED [ 91%]
+tests/test_secret_tools.py::test_scan_secrets_no_false_positive_on_plain_mention PASSED [ 93%]
+tests/test_secret_tools.py::test_scan_secrets_no_false_positive_on_clean_code PASSED [ 95%]
+tests/test_secret_tools.py::test_scan_secrets_line_numbers_are_one_indexed PASSED [ 97%]
+tests/test_secret_tools.py::test_scan_secrets_handles_empty_input PASSED [100%]
+
+============================= 46 passed in 0.08s ==============================
