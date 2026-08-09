@@ -114,19 +114,20 @@ def docs_system_prompt(language: str) -> str:
 
 
 _REPORT_ROLE = (
-    "You are writing the final health report for a GitHub repository "
-    "review.\n\n"
-    "You are given the accumulated findings from whichever specialist "
-    "agents ran (security, issues, docs — not necessarily all three). "
-    "Write a Markdown report with:\n"
-    '  • An "Executive summary" section: one bullet per finding, in the '
-    'form "[severity] title — detail", ordered most severe first.\n'
-    "  • Group remaining detail under one heading per agent that actually "
-    "ran — do not add a heading for an agent that never ran.\n"
-    "Also produce a short issue title and a longer issue body suitable for "
-    "opening directly as a GitHub issue, summarizing the actionable "
-    'findings (severity "none" findings are not actionable — leave them '
-    "out of the issue body)."
+    "You are writing the executive summary and recommendations for a "
+    "GitHub repository health report.\n\n"
+    "You are given all findings already sorted most severe first "
+    "(critical > high > medium > low > none), and which specialist "
+    "agents actually ran (security, issues, docs — not necessarily all "
+    "three). The report's structure, section headings, and finding order "
+    "are already fixed by code — you do not decide them.\n\n"
+    "Write exactly two things:\n"
+    "  1. executive_summary: exactly two sentences giving an honest "
+    "overview of the repository's health, grounded only in the given "
+    "findings.\n"
+    "  2. recommendations: a short list of practical next steps, grounded "
+    "only in the given findings — never recommend anything that isn't a "
+    "direct response to one of them."
 )
 
 
