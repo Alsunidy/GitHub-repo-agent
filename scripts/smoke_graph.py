@@ -16,11 +16,24 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import backend.graph.build as build_module  # noqa: E402
 from backend.graph.build import build_graph  # noqa: E402
 from backend.state import initial_state  # noqa: E402
 
+# حادثة 2026-08-09: سيناريو "مسار سليم" كان يشير لمستودع Flask الحقيقي، وموافقة
+# approve=True في هذا السكربت فتحت بلاغاً فعلياً هناك (pallets/flask#6126).
+# القاعدة: الوكيل يكتب فقط في مستودعات نملكها — لذا (١) رابط الاختبار الآن
+# مستودعنا الخاص sl-rwl/test_1 بدل أي مستودع مصدر مفتوح لسنا مالكيه، و(٢) خطوة
+# النشر محاكاة (لا تلمس الشبكة إطلاقاً) لتفادي تكرار الكتابة حتى في مستودعاتنا
+# مع كل تشغيل تطويري للسكربت.
+def _simulated_open_issue(owner: str, repo: str, title: str, body: str) -> str:
+    return f"https://github.com/{owner}/{repo}/issues/SIMULATED"
+
+
+build_module.open_issue = _simulated_open_issue
+
 SCENARIOS = [
-    ("مسار سليم كامل", "https://github.com/pallets/flask", "en"),
+    ("مسار سليم كامل", "https://github.com/sl-rwl/test_1", "en"),
     ("مستودع بلا مادة للفحص", "https://github.com/someone/bare", "en"),
     ("مستودع غير موجود", "https://github.com/someone/does-not-exist", "ar"),
     ("رابط ليس مستودعاً", "https://github.com/settings/profile", "ar"),
@@ -70,7 +83,7 @@ def main() -> int:
     # نفس المسار السليم لكن مع رفض النشر — إثبات أن الموافقة تغيّر النتيجة فعلاً
     results.append(
         ("مسار سليم مع رفض النشر", run("مسار سليم مع رفض النشر",
-                                        "https://github.com/pallets/flask", "ar", approve=False))
+                                        "https://github.com/sl-rwl/test_1", "ar", approve=False))
     )
 
     print(f"\n{'=' * 72}\nالخلاصة")
