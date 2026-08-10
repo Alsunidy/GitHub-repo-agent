@@ -24,23 +24,13 @@ Three conditional edges that genuinely change the path:
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
+from backend.graph.agents import docs_agent, issues_agent, security_agent
 from backend.graph.fetch import fetch_node, route_after_fetch
 from backend.graph.guardrail import guardrail_node, route_after_guardrail
+from backend.graph.report import report_node
 from backend.graph.supervisor import route_from_supervisor, supervisor_node
 from backend.state import AgentState
-
-# -- temporary: delete at the first integration point (see backend/stubs.py) --
-try:
-    from backend.graph.agents import docs_agent, issues_agent, security_agent
-    from backend.graph.report import report_node
-except ImportError:  # pragma: no cover
-    from backend.stubs import docs_agent, issues_agent, report_node, security_agent
-
-try:
-    from backend.tools.github_tools import MissingToken, open_issue
-except ImportError:  # pragma: no cover
-    from backend.stubs import MissingToken, open_issue
-# ---------------------------------------------------------------------------
+from backend.tools.github_tools import MissingToken, open_issue
 
 # User-facing text stays bilingual -- see the note in guardrail.py.
 _PUBLISH_MESSAGES = {

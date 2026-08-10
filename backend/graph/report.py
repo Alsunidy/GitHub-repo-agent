@@ -9,6 +9,7 @@ any LLM call at all, so a healthy repository can never get a fabricated
 problem.
 """
 import json
+import re
 from collections import Counter
 
 from pydantic import BaseModel, Field
@@ -30,7 +31,6 @@ _LABELS = {
         "by_area": "Findings by Area",
         "recommendations": "Recommendations",
         "evidence": "Evidence",
-        "see_top_issues": '— see "Top Issues" above.',
         "agents": {"security": "Security", "issues": "Issues", "docs": "Documentation"},
     },
     "ar": {
@@ -42,7 +42,6 @@ _LABELS = {
         "by_area": "التفاصيل حسب المجال",
         "recommendations": "التوصيات",
         "evidence": "الدليل",
-        "see_top_issues": "— انظر «أخطر المشاكل» أعلاه.",
         "agents": {"security": "الأمان", "issues": "البلاغات", "docs": "التوثيق"},
     },
 }
@@ -55,8 +54,12 @@ class ReportText(BaseModel):
     executive_summary: str = Field(
         description="Exactly two sentences summarizing overall repository health."
     )
-    recommendations: str = Field(
-        description="Short, practical next steps grounded only in the given findings."
+    # A list, not one string: asked for prose the model returns "1. ... 2. ..."
+    # on a single line, which Markdown renders as one item swallowing the rest.
+    # One step per entry puts the numbering back in the renderer's hands.
+    recommendations: list[str] = Field(
+        description="Practical next steps, ONE per entry, each grounded only in "
+                    "the given findings. Do not number or bullet them yourself."
     )
 
 
@@ -84,6 +87,10 @@ def report_node(state: AgentState) -> dict:
             text = _ask_llm_report(language, sorted_findings, agents_done)
         except Exception:  # noqa: BLE001 — no key, network, bad output: fall back, don't crash the graph
             text = _deterministic_report_text(actionable, language)
+        # An empty (or all-blank) list would leave the section headed and
+        # empty — fall back rather than print a heading over nothing.
+        if not _clean_recommendations(text.recommendations):
+            text.recommendations = _deterministic_report_text(actionable, language).recommendations
     else:
         # Nothing actionable: never call the LLM — a healthy repo must
         # never risk a fabricated problem.
@@ -125,13 +132,13 @@ def _deterministic_report_text(actionable: list[dict], language: str) -> ReportT
             f"تم العثور على {len(actionable)} ملاحظة تحتاج انتباهاً في هذا المستودع ({breakdown}). "
             "أخطرها مذكور أدناه مع الأدلة."
         )
-        recommendations = "راجع القسم أعلاه وعالج الملاحظات الأشد خطورة أولاً."
+        recommendations = ["راجع القسم أعلاه وعالج الملاحظات الأشد خطورة أولاً."]
     else:
         summary = (
             f"{len(actionable)} finding(s) need attention in this repository ({breakdown}). "
             "The most severe are listed below with their evidence."
         )
-        recommendations = "Review the findings below and address the most severe ones first."
+        recommendations = ["Review the findings below and address the most severe ones first."]
     return ReportText(executive_summary=summary, recommendations=recommendations)
 
 
@@ -142,14 +149,17 @@ def _healthy_report_text(language: str) -> ReportText:
                 "لم يُعثر على أي مشكلة فعلية في هذا المستودع بناءً على ما فحصناه — "
                 "المستودع في حالة سليمة."
             ),
-            recommendations="لا توصيات مطلوبة حالياً؛ يُستحسن إعادة الفحص دورياً مع تطور المستودع.",
+            recommendations=["لا توصيات مطلوبة حالياً؛ يُستحسن إعادة الفحص دورياً مع تطور المستودع."],
         )
     return ReportText(
         executive_summary=(
             "No actual problems were found in this repository based on what was "
             "checked — the repository is healthy."
         ),
-        recommendations="No recommendations needed right now; re-run this review periodically as the repository evolves.",
+        recommendations=[
+            "No recommendations needed right now; re-run this review periodically "
+            "as the repository evolves."
+        ],
     )
 
 
@@ -179,12 +189,6 @@ def _render_report(
         lines.append(labels["healthy_line"])
     lines.append("")
 
-    # Findings already shown in "Top Issues" get a one-line pointer here
-    # instead of repeating title/detail/evidence verbatim. Same dict objects
-    # as in top_issues (both built from sorted_findings), so identity is a
-    # reliable way to detect "already shown".
-    top_issue_ids = {id(f) for f in top_issues}
-
     lines.append(f"## {labels['by_area']}")
     lines.append("")
     for agent in _AGENT_ORDER:
@@ -195,21 +199,36 @@ def _render_report(
             continue
         lines.append(f"### {labels['agents'][agent]}")
         for finding in agent_findings:
-            already_shown = id(finding) in top_issue_ids
-            lines.append(f"- {_render_finding_line(finding, labels, condensed=already_shown)}")
+            lines.append(f"- {_render_finding_line(finding, labels)}")
         lines.append("")
 
     lines.append(f"## {labels['recommendations']}")
     lines.append("")
-    lines.append(text.recommendations)
+    for i, recommendation in enumerate(_clean_recommendations(text.recommendations), start=1):
+        lines.append(f"{i}. {recommendation}")
 
     return "\n".join(lines).strip() + "\n"
 
 
-def _render_finding_line(finding: dict, labels: dict, condensed: bool = False) -> str:
-    title_part = f"**[{finding.get('severity')}] {finding.get('title')}**"
-    if condensed:
-        return f"{title_part} {labels['see_top_issues']}"
+# "1. ", "2) ", "- ", "* ", "• " at the start of an entry.
+_LEADING_MARKER = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s+")
 
+
+def _clean_recommendations(recommendations: list[str]) -> list[str]:
+    """The model is told not to number its own entries; when it does anyway,
+    the numbering added here would double up ("1. 1. ..."). Strip whatever
+    marker it prefixed, and drop blank entries."""
+    cleaned = []
+    for item in recommendations or []:
+        stripped = _LEADING_MARKER.sub("", (item or "").strip()).strip()
+        if stripped:
+            cleaned.append(stripped)
+    return cleaned
+
+
+def _render_finding_line(finding: dict, labels: dict) -> str:
     evidence = ", ".join(finding.get("evidence", [])) or "—"
-    return f"{title_part} — {finding.get('detail')} ({labels['evidence']}: {evidence})"
+    return (
+        f"**[{finding.get('severity')}] {finding.get('title')}** — {finding.get('detail')} "
+        f"({labels['evidence']}: {evidence})"
+    )

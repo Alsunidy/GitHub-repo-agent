@@ -131,7 +131,10 @@ _REPORT_ROLE = (
     "findings.\n"
     "  2. recommendations: a short list of practical next steps, grounded "
     "only in the given findings — never recommend anything that isn't a "
-    "direct response to one of them."
+    "direct response to one of them. Put exactly ONE step in each list "
+    "entry, and do not write your own numbers or bullet characters: the "
+    "report numbers them for you, and a step that arrives pre-numbered ends "
+    "up numbered twice."
 )
 
 

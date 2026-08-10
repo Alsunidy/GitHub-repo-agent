@@ -1,0 +1,108 @@
+$ uvicorn backend.api:app --port 8000        (in another terminal)
+$ python scripts/check_api.py
+Date: 2026-08-10 11:33:19
+
+Real GitHub API, real OSV.dev, real OpenAI, real HTTP between the client
+and the backend. No stubs, no mocks, no canned data anywhere in this run.
+backend : http://localhost:8000
+repo    : https://github.com/sl-rwl/test_1
+
+========================================================================
+> GET /health
+------------------------------------------------------------------------
+   200 {'status': 'ok'}
+   PASS  health returns ok
+
+========================================================================
+> POST /analyze -- refused: the URL is not a repository
+------------------------------------------------------------------------
+   status      : rejected
+   agents_done : []
+   report      : هذا لا يبدو رابط مستودع GitHub. أنا أحلّل المستودعات فقط، بالشكل `https://github.com/owner/repo`. لا
+   PASS  a non-repository URL is refused
+   PASS  no agent ran on a refused request
+
+========================================================================
+> POST /approve -- a refused thread has nothing to approve
+------------------------------------------------------------------------
+   409 {'detail': 'This analysis is not waiting for approval (it was rejected, or the decision was already made).'}
+   PASS  approving a refused thread is a 409
+   404 {'detail': 'Unknown thread_id.'}
+   PASS  an unknown thread_id is a 404
+
+========================================================================
+> POST /analyze -- full review of https://github.com/sl-rwl/test_1
+------------------------------------------------------------------------
+   status      : awaiting_approval
+   agents_done : ['issues', 'security', 'docs']
+   thread_id   : 0e5bc340-7ff1-4ace-a1ad-a44ad9e240a1
+
+# Repository Health Report — sl-rwl/test_1
+
+## Executive Summary
+
+The repository has several critical security vulnerabilities, including multiple exposed secrets such as a GitHub token, OpenAI API key, AWS access key, Google API key, and a hardcoded password, all of which pose significant risks. Additionally, there are high-severity vulnerabilities in several dependencies, as well as medium-severity issues related to application errors and security configurations.
+
+## Top Issues
+
+1. **[critical] Exposed GitHub Token** — A critical secret, a GitHub token, is exposed in config.py at line 8, which could allow unauthorized access to GitHub resources. (Evidence: config.py:8)
+2. **[critical] Exposed OpenAI API Key** — A critical secret, an OpenAI API key, is exposed in config.py at line 9, potentially allowing unauthorized use of OpenAI services. (Evidence: config.py:9)
+3. **[critical] Exposed AWS Access Key** — A critical secret, an AWS access key, is exposed in config.py at line 10, which could lead to unauthorized access to AWS resources. (Evidence: config.py:10)
+
+## Findings by Area
+
+### Security
+- **[critical] Exposed GitHub Token** — A critical secret, a GitHub token, is exposed in config.py at line 8, which could allow unauthorized access to GitHub resources. (Evidence: config.py:8)
+- **[critical] Exposed OpenAI API Key** — A critical secret, an OpenAI API key, is exposed in config.py at line 9, potentially allowing unauthorized use of OpenAI services. (Evidence: config.py:9)
+- **[critical] Exposed AWS Access Key** — A critical secret, an AWS access key, is exposed in config.py at line 10, which could lead to unauthorized access to AWS resources. (Evidence: config.py:10)
+- **[critical] Exposed Google API Key** — A critical secret, a Google API key, is exposed in config.py at line 11, which could allow unauthorized access to Google services. (Evidence: config.py:11)
+- **[critical] Exposed Hardcoded Password** — A critical secret, a hardcoded password, is exposed in config.py at line 17, which poses a significant security risk if compromised. (Evidence: config.py:17)
+- **[high] Flask Denial of Service Vulnerability** — The Flask package version 0.12 is vulnerable to a Denial of Service attack due to incorrect encoding of JSON data, which could disrupt service availability. (Evidence: GHSA-562c-5r94-xh97, GHSA-5wv5-4vpf-pj6m, GHSA-68rp-wp8r-4726, GHSA-m2qf-hxjv-5gpq, PYSEC-2018-66)
+- **[high] Requests Credentials Leak Vulnerability** — The Requests package version 2.19.0 has a high severity vulnerability that allows .netrc credentials to be leaked through malicious URLs, potentially exposing sensitive information. (Evidence: GHSA-9hjg-9r4m-mvj7, GHSA-9wx4-h78v-vm56, GHSA-gc5v-m9x4-r6x2, GHSA-j8r2-6x86-q33q, GHSA-x84v-xcm2-53pg)
+- **[high] Django SQL Injection Vulnerability** — Django version 2.2.0 is susceptible to SQL Injection attacks, which could allow attackers to manipulate database queries and access unauthorized data. (Evidence: GHSA-2gwj-7jmv-h26r, GHSA-2m34-jcjv-45xf, GHSA-3gh2-xw74-jmcw, GHSA-3h9f-r86x-qvjx, GHSA-53qw-q765-4fww)
+- **[high] PyYAML Improper Input Validation** — The PyYAML package version 5.3.1 has a vulnerability related to improper input validation, which could lead to unexpected behavior or security issues. (Evidence: GHSA-8q59-q68h-6hv4, PYSEC-2021-142)
+- **[high] Jinja2 Sandbox Escape Vulnerability** — Jinja2 version 2.10 is vulnerable to sandbox escape via string formatting, which could allow attackers to execute arbitrary code in a restricted environment. (Evidence: GHSA-462w-v97r-4m45, GHSA-cpwx-vrp4-4pq7, GHSA-g3rq-g295-4j3m, GHSA-h5c8-rqwp-cp95, GHSA-h75v-3vvj-5mfj)
+- **[high] urllib3 Improper Handling of Compressed Data** — The urllib3 package version 1.24.1 improperly handles highly compressed data in its streaming API, which could lead to security vulnerabilities. (Evidence: GHSA-2xpw-w6gg-jr37, GHSA-34jh-p97f-mpxf, GHSA-38jv-5279-wg99, GHSA-g4mx-q9vg-27p4, GHSA-gm62-xv2j-4w53)
+
+### Issues
+- **[medium] App crashes with 500 error on unknown product id** — Both issues describe the same underlying problem of the application crashing or returning an error when a non-existent product ID is requested. (Evidence: #4, #5)
+- **[medium] Security: debug mode enabled in production** — This issue poses a significant security risk as it allows for remote code execution if the application is deployed with debug mode enabled. (Evidence: #7, #9, #8)
+
+### Documentation
+- **[low] README is missing: what the project is** — The README does not provide a description of what the project is or the problem it solves. (Evidence: what it is)
+- **[low] README is missing: installation steps** — There are no concrete setup or installation steps provided in the README. (Evidence: installation)
+- **[low] README is missing: usage instructions** — The README does not include any information on how to run or use the project, nor does it provide an example. (Evidence: usage)
+- **[low] README is missing: a license** — There is no stated license in the README. (Evidence: license)
+
+## Recommendations
+
+1. Immediately remove the exposed secrets from config.py and rotate them to prevent unauthorized access.
+2. Update the Flask, Requests, Django, PyYAML, Jinja2, and urllib3 packages to their latest secure versions to mitigate the identified vulnerabilities.
+3. Address the application issues related to crashing on unknown product IDs and ensure debug mode is disabled in production.
+4. Enhance the README by adding a project description, installation steps, usage instructions, and a license.
+
+   PASS  the run pauses for approval
+   PASS  at least one agent ran
+   PASS  a report came back
+
+========================================================================
+> POST /approve -- declined: nothing is written
+------------------------------------------------------------------------
+   {'status': 'cancelled', 'issue_url': None, 'message': 'No issue was opened — you declined.'}
+   PASS  declining cancels
+   PASS  declining opens no issue
+
+========================================================================
+Summary
+  PASS  health returns ok
+  PASS  a non-repository URL is refused
+  PASS  no agent ran on a refused request
+  PASS  approving a refused thread is a 409
+  PASS  an unknown thread_id is a 404
+  PASS  the run pauses for approval
+  PASS  at least one agent ran
+  PASS  a report came back
+  PASS  declining cancels
+  PASS  declining opens no issue
+
+10/10 passed
