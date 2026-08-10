@@ -7,14 +7,8 @@ Three ways this fails:
   3. Success returning nothing -- a repo with no readable content at all.
 """
 
-# -- temporary: delete at the first integration point (see backend/stubs.py) --
-try:
-    from backend.tools.github_tools import RepoNotFound, fetch_repo_data
-except ImportError:  # pragma: no cover
-    from backend.stubs import RepoNotFound, fetch_repo_data
-# ---------------------------------------------------------------------------
-
 from backend.state import AgentState
+from backend.tools.github_tools import RepoNotFound, fetch_repo_data
 
 # User-facing text stays bilingual -- see the note in guardrail.py.
 _MESSAGES = {

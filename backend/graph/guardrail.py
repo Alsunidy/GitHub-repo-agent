@@ -5,14 +5,8 @@ that point at github.com but not at a repository (a profile, a search page,
 a settings page).
 """
 
-# -- temporary: delete at the first integration point (see backend/stubs.py) --
-try:
-    from backend.tools.github_tools import parse_repo_url
-except ImportError:  # pragma: no cover
-    from backend.stubs import parse_repo_url
-# ---------------------------------------------------------------------------
-
 from backend.state import AgentState
+from backend.tools.github_tools import parse_repo_url
 
 # Paths on github.com that are not repositories. Rejected even when they
 # happen to match the owner/repo shape.

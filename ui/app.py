@@ -4,14 +4,13 @@ Talks to the backend over HTTP only (POST /analyze, POST /approve per
 CONTRACTS.md) — never imports the graph, per the brief's hard requirement
 that the UI must not run the graph itself.
 
-Run:
+Run the backend first, then this:
+    uvicorn backend.api:app --port 8000
     streamlit run ui/app.py
 
-Points at FAHES_BACKEND (default http://localhost:8000). During UI
-development, run the mock backend instead of the real one:
-    python scripts/mock_backend.py
-and switch to the real FastAPI backend later by changing FAHES_BACKEND in
-.env — no change needed here.
+The backend's base URL comes from FAHES_BACKEND (default
+http://localhost:8000), so pointing this UI at a different server is a
+change to .env, never to this file.
 """
 import os
 
@@ -196,6 +195,11 @@ def main() -> None:
                     st.success(f"{_t('issue_opened')} {approval_result['issue_url']}")
                 else:
                     st.info(_t("no_issue"))
+                    # The backend explains an approved-but-unpublished outcome
+                    # (no GITHUB_TOKEN, GitHub refused the write) in the user's
+                    # language — showing it beats a bare "no issue was opened".
+                    if approval_result.get("message"):
+                        st.caption(approval_result["message"])
 
         if st.button(_t("new_scan")):
             _reset_scan_state()

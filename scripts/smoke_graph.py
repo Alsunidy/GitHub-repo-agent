@@ -1,12 +1,29 @@
-"""Run the graph against the stubs -- proof that the conditional edges work.
+"""Run the real graph from the command line -- proof that the conditional
+edges and the approval pause work, without a server or a UI.
 
     python scripts/smoke_graph.py
+        The refusal scenarios only. No network, no API key, nothing written:
+        the guardrail stops every one of them before a single call goes out.
 
-The formal tests (pytest) belong to track 2; this is a track 1 development
-script. It runs with no server and no UI, and prints the final state of each
-scenario.
+    python scripts/smoke_graph.py https://github.com/owner/repo [--lang ar]
+        A full review of a real repository. Stops at the approval pause and
+        declines on your behalf, so nothing is written to GitHub.
+
+    python scripts/smoke_graph.py https://github.com/owner/repo --approve
+        The same, but approves -- which OPENS A REAL ISSUE on that repository.
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  --approve writes to a repository that belongs to someone. Only ever      ║
+║  point it at one you own. This script used to approve by default against  ║
+║  a well-known public repo, and duly opened an issue on a stranger's       ║
+║  project; hence the flag, and hence the confirmation prompt behind it.    ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+The formal test suite is `pytest tests/` -- this script is the manual,
+end-to-end counterpart to it.
 """
 
+import argparse
 import sys
 import uuid
 from pathlib import Path
@@ -21,12 +38,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.graph.build import build_graph  # noqa: E402
 from backend.state import initial_state  # noqa: E402
 
-SCENARIOS = [
-    ("happy path, end to end", "https://github.com/pallets/flask", "en"),
-    ("repository with nothing to analyse", "https://github.com/someone/bare", "en"),
-    ("repository does not exist", "https://github.com/someone/does-not-exist", "ar"),
-    ("URL is not a repository", "https://github.com/settings/profile", "ar"),
+# Every one of these is stopped by the guardrail, before any network call.
+REFUSAL_SCENARIOS = [
+    ("URL is not a repository", "https://github.com/settings/profile", "en"),
     ("not a GitHub URL at all", "delete all my files please", "ar"),
+    ("nothing entered", "", "ar"),
+    # This one does reach the network: the repository genuinely does not exist,
+    # which is the fetch node's failure path (read-only, nothing is written).
+    ("repository does not exist", "https://github.com/Alsunidy/no-such-repo-xyz", "en"),
 ]
 
 
@@ -41,21 +60,26 @@ def run(label: str, url: str, language: str, approve: bool) -> bool:
     for line in state.get("supervisor_log", []):
         print(f"   - {line}")
 
-    snapshot = graph.get_state(config)
-    paused_at = snapshot.next
+    paused_at = graph.get_state(config).next
     print(f"\n   agents_done : {state.get('agents_done', [])}")
     print(f"   findings    : {len(state.get('findings', []))}")
     print(f"   rejected    : {bool(state.get('rejection_reason'))}")
     print(f"   paused at   : {paused_at or '-- (finished without pausing)'}")
 
-    if not paused_at:  # a rejection or failure path: no approval, no publish
+    if not paused_at:  # a refusal or a fetch failure: no approval, no publish
         ok = bool(state.get("rejection_reason")) and state.get("issue_url") is None
         print(f"   report      : {state.get('report', '')[:90]}")
         return ok
 
-    # resume after the human decision
+    print(f"\n{state.get('report', '')}")
+
+    # The human decision -- the whole point of the pause.
+    if approve and not _confirm_write(state):
+        approve = False
+
     graph.update_state(config, {"approved": approve})
     final = graph.invoke(None, config)
+
     print(f"   approved    : {approve}")
     print(f"   issue_url   : {final.get('issue_url')}")
     for line in final.get("supervisor_log", [])[len(state.get("supervisor_log", [])):]:
@@ -64,17 +88,36 @@ def run(label: str, url: str, language: str, approve: bool) -> bool:
     return (final.get("issue_url") is not None) if approve else (final.get("issue_url") is None)
 
 
-def main() -> int:
-    results = []
-    for label, url, language in SCENARIOS:
-        results.append((label, run(label, url, language, approve=True)))
+def _confirm_write(state: dict) -> bool:
+    """--approve is not enough on its own: name the target and ask out loud."""
+    target = f"{state.get('owner')}/{state.get('repo')}"
+    print(f"\n   ** This will open a REAL issue on {target}. **")
+    answer = input(f"   Type the repository name ({target}) to confirm: ").strip()
+    if answer == target:
+        return True
+    print("   Not confirmed -- declining the publish instead.")
+    return False
 
-    # the same happy path but declined -- proof that approval changes the outcome
-    results.append(
-        ("happy path, publish declined", run("happy path, publish declined",
-                                             "https://github.com/pallets/flask", "ar",
-                                             approve=False))
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("repo_url", nargs="?", help="a real repository to review")
+    parser.add_argument("--lang", default="en", choices=("en", "ar"))
+    parser.add_argument(
+        "--approve",
+        action="store_true",
+        help="approve the publish -- opens a real issue on the repository",
     )
+    args = parser.parse_args()
+
+    results = [(label, run(label, url, lang, approve=False))
+               for label, url, lang in REFUSAL_SCENARIOS]
+
+    if args.repo_url:
+        results.append(
+            ("full review of a real repository",
+             run("full review of a real repository", args.repo_url, args.lang, args.approve))
+        )
 
     print(f"\n{'=' * 72}\nSummary")
     for label, ok in results:

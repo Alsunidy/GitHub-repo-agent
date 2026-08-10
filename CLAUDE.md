@@ -57,7 +57,7 @@
   llm = get_llm(temperature=0)
   llm = get_llm().with_structured_output(MyModel)
   ```
-- المزوّد يُضبط عبر `LLM_PROVIDER` في `.env` (الافتراضي `openai`، الموديل `gpt-4o-mini`). المتاح: `openai` | `openrouter` | `anthropic` | `google`. التبديل = سطر واحد في `.env` بلا لمس الكود.
+- **المزوّد هو OpenAI حصراً** (`OPENAI_API_KEY` في `.env`)، والموديل الافتراضي `gpt-4o-mini` يُغيَّر عبر `LLM_MODEL` وحده. لا يوجد متغيّر `LLM_PROVIDER` ولا مزوّد بديل — أي إضافة لمزوّد آخر تكون داخل `get_llm()` نفسها، وهذا سبب وجود المصنع أصلاً.
 - للتحقق من المفتاح قبل أي تشخيص للـ graph: `python scripts/check_llm.py`.
 
 ### عقد الـ API

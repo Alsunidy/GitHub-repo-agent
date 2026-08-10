@@ -51,7 +51,7 @@ def _state(findings, agents_done, **overrides):
 def test_report_node_returns_the_three_contract_keys(monkeypatch):
     findings = [_finding("security", "critical", "Exposed secret")]
     state = _state(findings, ["security"])
-    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations="Fix it."))
+    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations=["Fix it."]))
     monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
 
     result = report_node(state)
@@ -69,7 +69,7 @@ def test_report_node_ranks_findings_by_severity_deterministically(monkeypatch):
         _finding("security", "high", "Vulnerable package"),
     ]
     state = _state(findings, ["security", "issues", "docs"])
-    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations="Fix it."))
+    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations=["Fix it."]))
     monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
 
     result = report_node(state)
@@ -121,6 +121,43 @@ def test_report_node_falls_back_deterministically_when_llm_fails(monkeypatch):
 
     assert "1 finding(s) need attention" in result["report"]
     assert "Exposed secret" in result["report"]
+
+
+def test_report_node_numbers_each_recommendation_on_its_own_line(monkeypatch):
+    # The model used to be asked for recommendations as one string and would
+    # answer "1. ... 2. ... 3. ..." inline, which Markdown renders as a single
+    # list item swallowing the rest. One entry per step, numbered by the code.
+    findings = [_finding("security", "critical", "Exposed secret")]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(
+        return_value=ReportText(
+            executive_summary="Summary.",
+            # the second entry arrives pre-numbered — the model ignoring its
+            # instructions must not produce "2. 1. Update the dependency."
+            recommendations=["Remove the secret.", "1. Update the dependency.", "  "],
+        )
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section.splitlines() == [
+        "1. Remove the secret.",
+        "2. Update the dependency.",
+    ]
+
+
+def test_report_node_falls_back_when_the_model_returns_no_recommendations(monkeypatch):
+    findings = [_finding("security", "critical", "Exposed secret")]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(
+        return_value=ReportText(executive_summary="Summary.", recommendations=[])
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section == "1. Review the findings below and address the most severe ones first."
 
 
 def test_report_node_skips_sections_for_agents_that_never_ran():

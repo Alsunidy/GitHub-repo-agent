@@ -1,5 +1,12 @@
 # Handoff: track 1 → track 2
 
+> **Status: done.** Both integration points are closed — the stubs are deleted,
+> the real tools are wired in, the FastAPI backend (`backend/api.py`) is built,
+> and the UI runs against it end to end. What follows is the record of the
+> handoff as it was written, kept for the history; section 6's deletion list and
+> section 8's "not built yet" are both now carried out. Start from
+> [README.md](README.md) to run the system.
+
 > The graph is built, tested end to end, and currently running on stubs. This
 > document tells you exactly what to build and where, so your code drops in
 > without a single line changing in the graph.
