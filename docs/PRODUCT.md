@@ -1,83 +1,91 @@
-# تعريف المنتج — الجزء الأول من البريف (٢٠% من الدرجة)
+# Product definition -- Part 1 of the brief (20% of the grade)
 
-> **الاسم المقترح:** تسليم — Taslīm
-> **الجملة الواحدة:** تقرير مخاطر مكتوب عن مستودع لم تكتبه أنت، في أربع دقائق
-> بدل أربع ساعات.
+> **Proposed name:** Taslīm ("handover")
+> **In one sentence:** a written risk report on a codebase you did not write,
+> in four minutes instead of four hours.
 
 ---
 
-## ١. شريحة السوق
+## 1. Market segmentation
 
-**الشريحة الأساسية:** شركات ووكالات تطوير البرمجيات في السعودية، حجمها ٥–٣٠
-مطوّراً، التي **تستلم أكواداً لم تكتبها** — صيانة، أو تطوير عليها، أو تسعير عرض.
+**Primary segment:** software development agencies in Saudi Arabia, 5-30
+developers, that **take on code they did not write** -- for maintenance, for
+extension, or to quote on it.
 
 | | |
 |---|---|
-| **من يدفع** | مالك الوكالة أو مدير التسليم — هو من يتحمّل كلفة التسعير الخاطئ |
-| **من يستخدم** | القائد التقني الذي يُكلَّف بتقييم المستودع قبل العرض |
-| **اللحظة الفاصلة** | العميل يقول: "هذا مستودعنا، كم تأخذون لصيانته؟" |
+| **Who pays** | The agency owner or delivery manager -- they carry the cost of a bad quote |
+| **Who uses** | The tech lead assigned to assess the repository |
+| **The trigger moment** | The client says: "here's our repo, what would you charge to maintain it?" |
 
-**ليست الشريحة:** "المطوّرون" ولا "الشركات التقنية" — هذه عبارات فضفاضة يرفضها
-البريف صراحةً. الشريحة محدَّدة بـ **حدث** (استلام كود غريب) لا بمسمّى وظيفي.
+**Not the segment:** "developers" or "tech companies" -- vague terms the brief
+rejects outright. This segment is defined by an **event** (inheriting unfamiliar
+code), not by a job title.
 
-### كيف تبني قائمة الخمسين اسماً قبل العرض
+### How to build the list of fifty names before the presentation
 
-البريف يشترط أن تكون الشريحة ضيقة بما يكفي لتسمية خمسين عميلاً حقيقياً. لا
-تخترع أسماء — استخرجها من مصادر يمكن للمحكّم التحقق منها:
+The brief requires a segment narrow enough to name fifty real customers. Do not
+invent names -- pull them from sources a grader can verify:
 
-1. **LinkedIn** — فلتر: `Software Development` + `Saudi Arabia` + `11–50 موظفاً`
-2. **دليل منشآت** والسجل التجاري — نشاط "تطوير برمجيات"
-3. **محافظ المسرّعات:** مسك، فلات٦لابز، سنابل ٥٠٠، برنامج بادر
-4. **شركات التكامل المعتمدة** لدى مزوّدي السحابة في المنطقة
+1. **LinkedIn** -- filter: `Software Development` + `Saudi Arabia` + `11-50 employees`
+2. **The Monsha'at directory** and the commercial register -- activity "software development"
+3. **Accelerator portfolios:** Misk, Flat6Labs, Sanabil 500, the Badir programme
+4. **Certified integration partners** of the cloud providers operating in the region
 
-ضع الخمسين في جدول واحد باسم الشركة وحجمها ومصدر الاسم، وأرفقه كملحق في
-السلايدات. هذا وحده يفصلك عن الفرق التي تقول "الشركات الصغيرة".
+Put the fifty in one table with company name, size, and where the name came
+from, and attach it as an appendix slide. That alone separates you from teams
+who say "small businesses".
 
-**التوسّع لاحقاً:** الفرق التقنية الداخلية في الشركات غير التقنية (بنوك، تجزئة،
-لوجستيات) — لديها مستودعات ببلاغات مختلطة عربي/إنجليزي، وهي الشريحة التي يخدمها
-كشف التكرار بين اللغتين تحديداً.
+**Later expansion:** in-house engineering teams at non-tech companies (banks,
+retail, logistics). Their repositories carry mixed Arabic/English issue
+trackers, which is exactly what the cross-language duplicate detection serves.
 
 ---
 
-## ٢. الحاجة والقيمة — ولماذا وكيل؟
+## 2. The need, the value, and why an agent
 
-### المشكلة
+### The problem
 
-قبل أن تسعّر صيانة كود لم تكتبه، لازم تعرف ماذا ورثت. اليوم يجلس مطوّر أول
-٣–٦ ساعات يقرأ المستودع ليكتب تقدير مخاطر. الحساب:
+Before quoting on maintaining code you did not write, you need to know what you
+are inheriting. Today a senior developer spends 3-6 hours reading the repository
+to write a risk estimate. The arithmetic:
 
-| البند | الرقم |
+| Item | Figure |
 |---|---|
-| ساعات مطوّر أول لتقييم مستودع واحد | ٣–٦ ساعات |
-| تكلفة الساعة (تقدير سوقي — تحقّق منه) | ١٥٠–٢٠٠ ريال |
-| **تكلفة تقييم العرض الواحد** | **٤٥٠–١٢٠٠ ريال** |
-| نسبة العروض التي تتحوّل لعقود | ٢٠–٣٠% |
+| Senior developer hours to assess one repository | 3-6 hours |
+| Hourly cost (market estimate -- verify it) | SAR 150-200 |
+| **Cost of assessing a single opportunity** | **SAR 450-1,200** |
+| Share of quotes that convert to contracts | 20-30% |
 
-أي أن **٧٠–٨٠% من هذه التكلفة تُحرق على عروض لا تُربح**. والأسوأ: حين يُختصر
-التقييم توفيراً للوقت، تُسعَّر مستودعات فيها ثغرات ومفاتيح مكشوفة وديون توثيق
-بسعر مستودع سليم — والفرق يُدفع من هامش الوكالة طوال العقد.
+So **70-80% of that cost is burned on work that is never won**. Worse: when the
+assessment gets cut short to save time, repositories carrying vulnerabilities,
+exposed secrets and documentation debt get quoted as if they were sound -- and
+the difference comes out of the agency's margin for the life of the contract.
 
-### لماذا وكيل؟ (السؤال الذي يطلب البريف الإجابة عليه صراحةً)
+### Why an agent? (the question the brief asks outright)
 
-**لو استبدلناه بنموذج ثابت (form):** النموذج لا يقرر شيئاً. المستخدم نفسه
-سيُضطر لمعرفة أي فحص يحتاج — وهو بالضبط ما لا يعرفه، لأنه لم يرَ الكود بعد.
+**Replace it with a static form:** a form decides nothing. The user would have
+to know which check they need -- which is precisely what they do not know,
+because they have not seen the code yet.
 
-**لو استبدلناه بسكربت بقواعد ثابتة:** سيشغّل الفحوص الثلاثة دائماً بترتيب واحد.
-لكن المستودعات ليست متشابهة:
-- مستودع بلا ملف تبعيات ⇒ فحص الثغرات يُخرج "صفر ملاحظات" — ضجيج، ووقت، وتوكِنات
-- مستودع فيه ٣٠٠ بلاغ مفتوح ⇒ فرز البلاغات **هو** القيمة كلها
-- مستودع بلا README ⇒ التوثيق أولوية قصوى، لا بند أخير في قائمة
+**Replace it with a rule-based script:** it would run all three checks every
+time, in one order. But repositories are not alike:
+- No dependency file, and the vulnerability scan returns "no findings" -- noise, time, and tokens
+- 300 open issues, and issue triage **is** the entire value
+- No README, and documentation is the top priority rather than the last item on a list
 
-**لو استبدلناه باستدعاء LLM واحد:** يسقط لثلاثة أسباب صلبة:
-1. النموذج **لا يعرف** الثغرات المنشورة بعد تاريخ تدريبه — لا بد من استعلام
-   OSV.dev فعلياً
-2. محتوى المستودع لا بد أن يُجلب من واجهة GitHub — النموذج لا يملكه
-3. المخرَج النهائي **فعل في العالم الحقيقي**: فتح بلاغ على مستودع الغير. هذا
-   أثر جانبي غير قابل للتراجع، يحتاج بوابة موافقة بشرية — لا سطراً في prompt
+**Replace it with a single LLM call:** it fails for three hard reasons.
+1. The model **cannot know** vulnerabilities published after its training date --
+   OSV.dev has to actually be queried
+2. The repository's contents have to be fetched from the GitHub API -- the model
+   does not have them
+3. The final output is **an action in the real world**: opening an issue on
+   someone else's repository. That is an irreversible side effect and needs a
+   human approval gate, not a line in a prompt
 
-### الدليل المقاس (لا الادّعاء)
+### The measured evidence (not the claim)
 
-هذا إخراج فعلي من `scripts/smoke_graph.py` على النظام المبني:
+This is real output from `scripts/smoke_graph.py` on the system as built:
 
 ```
 supervisor: [llm] issues   — The repository has open issues that may be
@@ -89,147 +97,160 @@ supervisor: [llm] docs     — The README is very short and likely lacks
                              important information...
 ```
 
-**الترتيب الحتمي المبرمَج في الكود هو `security → issues → docs`.**
-المشرف خالفه وبدأ بـ `issues` بناءً على إشارات هذا المستودع تحديداً، وعلّل قراره.
+**The deterministic order written in the code is `security → issues → docs`.**
+The supervisor departed from it and started with `issues`, based on the signals
+of this specific repository, and explained why.
 
-استدعاء واحد بـ prompt ثابت لا يُنتج هذا. هذه هي إجابتك في الـ Q&A، ومعها ملف
-`proof_graph.txt` كإثبات.
+A single call with a fixed prompt does not produce this. That is your answer in
+the Q&A, with `proof_graph.txt` as the evidence.
 
 ---
 
-## ٣. النطاق الوظيفي — الـ MVP
+## 3. Functional scope -- the MVP
 
-### الأدوات التي يناديها الوكلاء
+### The tools the agents call
 
-| الأداة | ماذا تفعل فعلاً | النظام الخارجي |
+| Tool | What it actually does | External system |
 |---|---|---|
-| `fetch_repo_data` | تجلب البيانات الوصفية وREADME والبلاغات المفتوحة وملفات التبعيات والكود | **GitHub REST API** |
-| `check_vulnerabilities` | تستعلم عن ثغرات معروفة لكل حزمة مثبّتة، وترجع معرّفات GHSA/CVE | **OSV.dev API** |
-| `scan_secrets` | تفحص الملفات بأنماط المفاتيح المعروفة (`ghp_`, `sk-`, `AKIA…`) وتقنّع ما تجده | محلي |
-| `open_issue` | تفتح بلاغاً حقيقياً على المستودع بعد موافقة المستخدم | **GitHub REST API (كتابة)** |
+| `fetch_repo_data` | Fetches metadata, README, open issues, dependency and code files | **GitHub REST API** |
+| `check_vulnerabilities` | Queries known vulnerabilities per installed package, returns GHSA/CVE ids | **OSV.dev API** |
+| `scan_secrets` | Scans files for known key patterns (`ghp_`, `sk-`, `AKIA...`) and masks what it finds | local |
+| `open_issue` | Opens a real issue on the repository after the user approves | **GitHub REST API (write)** |
 
-ثلاث أدوات تلمس أنظمة خارجية حقيقية، **ولا واحدة منها ترجع بيانات معلّبة** —
-وهذا شرط صريح في البريف.
+Three tools reach genuine external systems, and **none of them returns canned
+data** -- an explicit requirement in the brief.
 
-### ما يقرره الوكيل ذاتياً مقابل ما ثبّتناه في الـ graph
+### What the agent decides versus what we fixed in the graph
 
-| يقرره الوكيل (المشرف) | مثبَّت في الـ graph |
+| Decided by the agent (the supervisor) | Fixed in the graph |
 |---|---|
-| أي وكيل متخصص يعمل تالياً | التحقق من صلاحية الرابط (الحارس) |
-| بأي ترتيب | جلب البيانات مرة واحدة |
-| متى نتوقف — قد لا يشغّل الثلاثة | صياغة التقرير بعد انتهاء الوكلاء |
-| صياغة كل ملاحظة وشدّتها | **بوابة الموافقة قبل الكتابة على GitHub** |
+| Which specialist agent runs next | URL validation (the guardrail) |
+| In what order | Fetching the data once |
+| When to stop -- it may not run all three | Assembling the report once the agents finish |
+| The wording and severity of each finding | **The approval gate before writing to GitHub** |
 
-القاعدة: **الحكم للنموذج، والأمان للكود.** المشرف يحسب "الأهلية" برمجياً (من
-يملك مادة ليعمل عليها)، ثم يترك الترتيب والتوقف للنموذج، ثم يتحقق من كل قرار
-يخرج منه قبل تنفيذه — قرار لوكيل منفَّذ مسبقاً أو غير مؤهَّل يُصحَّح تلقائياً.
+The rule: **judgement to the model, safety to the code.** The supervisor
+computes eligibility programmatically (who has material to work on), leaves
+order and stopping to the model, then validates every decision it returns before
+acting on it -- a choice naming an already-run or ineligible agent is corrected
+automatically.
 
-### خارج نطاق الـ MVP — صراحةً
+### Explicitly out of scope for the MVP
 
-- منصات غير GitHub (GitLab، Bitbucket)
-- إصلاح تلقائي أو فتح Pull Requests
-- المراقبة المستمرة — المنتج **تقييم لحظي**، لا حارس دائم
-- فحص التراخيص والامتثال القانوني
-- منظومات تبعيات غير Python في النسخة الأولى (`requirements.txt` فقط)
-- تحليل جودة الكود نفسه (تعقيد، تغطية اختبارات)
+- Platforms other than GitHub (GitLab, Bitbucket)
+- Automatic fixes or opening pull requests
+- Continuous monitoring -- this product is a **point-in-time assessment**, not a watchdog
+- Licence and legal compliance checks
+- Dependency ecosystems other than Python in the first release (`requirements.txt` only)
+- Analysis of code quality itself (complexity, test coverage)
 
 ---
 
-## ٤. التمايز
+## 4. Differentiation
 
-| | Dependabot / Snyk / Socket | GitGuardian | **تسليم** |
+| | Dependabot / Snyk / Socket | GitGuardian | **Taslīm** |
 |---|---|---|---|
-| التركيز | ثغرات التبعيات | المفاتيح المكشوفة | **أربعة أبعاد في حكم واحد** |
-| التهيئة | تثبيت على المستودع + CI | تثبيت | **لصق رابط — بلا تهيئة** |
-| فرز البلاغات | ✗ | ✗ | ✓ |
-| كشف التكرار **بين العربية والإنجليزية** | ✗ | ✗ | ✓ |
-| تقرير بالعربية | ✗ | ✗ | ✓ |
-| النمط | مراقبة مستمرة | مراقبة مستمرة | **تقييم عند الطلب** |
+| Focus | Dependency vulnerabilities | Exposed secrets | **Four dimensions in one verdict** |
+| Setup | Install on the repo + CI | Install | **Paste a URL -- no setup** |
+| Issue triage | No | No | Yes |
+| Duplicate detection **across Arabic and English** | No | No | Yes |
+| Arabic report | No | No | Yes |
+| Mode | Continuous monitoring | Continuous monitoring | **On-demand assessment** |
 
-**البديل الحقيقي ليس منافساً — بل "لا شيء".** الوكالة اليوم إما تحرق ٤ ساعات
-مطوّر أول، أو تسعّر بالحدس. المنافسة على الوقت والحدس، لا على Snyk.
+**The real alternative is not a competitor -- it is doing nothing.** Today the
+agency either burns four senior-developer hours or quotes on instinct. The
+competition is time and guesswork, not Snyk.
 
-**ثلاث نقاط تمايز يصعب تقليدها بسرعة:**
-1. **ثنائي اللغة فعلياً** — يكشف البلاغ نفسه مرفوعاً مرتين بالعربية والإنجليزية.
-   لا منافس عالمي يفعلها لأن السوق العربي ليس أولويته.
-2. **لا يكتب شيئاً بلا موافقة بشرية** — فتح بلاغ على مستودع عميل فعل ذو أثر
-   سمعوي. البوابة ميزة بيعية، لا قيداً تقنياً.
-3. **يتخطّى ما لا مادة له** — لا تقارير مليئة بـ"صفر ملاحظات".
+**Three points that are hard to copy quickly:**
+1. **Genuinely bilingual** -- it catches the same bug filed twice, once in Arabic
+   and once in English. No global competitor does this, because the Arabic market
+   is not their priority.
+2. **It writes nothing without human approval** -- opening an issue on a client's
+   repository carries reputational weight. The gate is a selling point, not a
+   technical limitation.
+3. **It skips what has no material** -- no reports padded with "no findings".
 
 ---
 
-## ٥. نموذج العمل
+## 5. Business model
 
-### التكلفة الحقيقية — مقيسة لا مخمّنة
+### The real cost -- measured, not guessed
 
-`scripts/estimate_cost.py` يبني نص prompt المشرف الفعلي ويعدّه، ثم يقدّر مدخلات
-الوكلاء من حجم بيانات المستودع:
+`scripts/estimate_cost.py` builds the exact supervisor prompt the system sends
+and counts it, then sizes the agents' inputs from the repository data:
 
 ```
-مستودع: ٣٠ بلاغاً، README ٣٠٠٠ محرف، ١٠ ملفات كود
-طريقة العدّ: قياس دقيق بـ tiktoken
+repository: 30 issues, README 3000 chars, 10 code files
+counting method: exact, measured with tiktoken
 
-المرحلة                استدعاءات       دخل      خرج      ريال
-المشرف (4 دورات)               4     1,632      240    0.0015
-وكيل الأمن                     1     5,150      400    0.0038
-وكيل البلاغات                  1     3,380      400    0.0028
-وكيل التوثيق                   1       750      400    0.0013
-التقرير                        1     1,200      900    0.0027
-الإجمالي                            12,112    2,340    0.0121
+stage                      calls     input   output       SAR
+supervisor (4 rounds)          4     1,632      240    0.0015
+security agent                 1     5,150      400    0.0038
+issues agent                   1     3,380      400    0.0028
+docs agent                     1       750      400    0.0013
+report                         1     1,200      900    0.0027
+total                               12,112    2,340    0.0121
 ```
 
-**تكلفة التحليل الواحد = ١.٢١ هللة** (gpt-4o-mini).
-**حصة المشرف: ١٣.٥% من توكِنات الدخل** — هذا ثمن اتخاذ القرار بدل تشغيل كل شيء
-دائماً. البريف يقول "الوكيل الذي يدور أغلى من استدعاء واحد؛ أظهر أنك تعرف
-الرقم". الرقم هو ١٣.٥%، ومقابله تخطّي فحوص فارغة على مستودعات لا تحتاجها.
+**Cost per analysis = 1.21 halalas** (gpt-4o-mini).
+**The supervisor's share: 13.5% of input tokens** -- that is the price of
+deciding rather than always running everything. The brief says "an agent that
+loops is more expensive than a single call; show that you know the number". The
+number is 13.5%, and what it buys is skipping empty checks on repositories that
+do not need them.
 
-> شغّل السكربت بنفسك قبل السلايد وحدّث الأرقام:
+> Run the script yourself before the slide and refresh the figures:
 > `python scripts/estimate_cost.py --issues 120 --readme 8000 --code-files 30`
 
-### التسعير
+### Pricing
 
-| الباقة | السعر | الحد |
+| Plan | Price | Limit |
 |---|---|---|
-| **الوكالة** | ٢٩٩ ريال/شهر | ١٥٠ تحليلاً |
-| تحليل إضافي | ٣ ريال | — |
+| **Agency** | SAR 299/month | 150 analyses |
+| Additional analysis | SAR 3 | -- |
 
-**منطق التسعير:** التقييم اليدوي يكلّف الوكالة ٤٥٠–١٢٠٠ ريال للعرض الواحد.
-باقة الشهر كاملة أرخص من **تقييم يدوي واحد**. لا يُسعَّر على التكلفة — يُسعَّر
-على الساعات المستبدَلة.
+**The pricing logic:** a manual assessment costs the agency SAR 450-1,200 per
+opportunity. A full month's plan is cheaper than **one manual assessment**. It
+is not priced on cost -- it is priced on the hours it replaces.
 
-### التوقعات
+### Projections
 
 | | |
 |---|---|
-| ٣٠ وكالة × ٢٩٩ ريال | **٨,٩٧٠ ريال/شهر** |
-| تكلفة التوكِنات (٣٠ × ١٥٠ × ٠.٠١٢١) | ~٥٤ ريال/شهر |
-| الهامش الإجمالي على الاستدلال | >٩٩% |
+| 30 agencies x SAR 299 | **SAR 8,970/month** |
+| Token cost (30 x 150 x 0.0121) | ~SAR 54/month |
+| Gross margin on inference | >99% |
 
-**كن صادقاً في السلايد:** التكلفة الحقيقية ليست التوكِنات — بل الاستضافة والدعم
-والبيع. اذكر ذلك قبل أن يسأله المحكّم؛ الرقم ٩٩% وحده يبدو ساذجاً.
+**Be honest on the slide:** the real cost is not tokens -- it is hosting,
+support, and sales. Say so before the grader asks; the 99% figure on its own
+reads naive.
 
-**الاحتفاظ:** متوسط، لا مرتفع. المنتج تقييم لحظي لا يدخل في سير العمل اليومي.
-الطريق لرفعه: أرشيف التقييمات ومقارنة "قبل/بعد" للعميل نفسه.
+**Retention:** moderate, not high. This is a point-in-time assessment that does
+not embed itself in daily workflow. The route to raising it: an archive of past
+assessments and a before/after comparison for the same client.
 
 ---
 
-## ٦. المخاطر التي سيسألك عنها المحكّم
+## 6. The risks a grader will ask about
 
-| السؤال | الجواب |
+| Question | Answer |
 |---|---|
-| "ما الذي يمنع GitHub من بنائها غداً؟" | لا شيء تقنياً. لكن السوق العربي ليس أولويتها، والتكرار بين اللغتين ليس مشكلة تراها. الميزة زمنية لا دائمة — وقل ذلك بصراحة. |
-| "لماذا يدفع أحد مقابل ما يفعله Snyk مجاناً؟" | Snyk يفحص بعداً واحداً ويحتاج تثبيتاً على المستودع. القيمة هنا في الحكم المركّب على مستودع **لا تملكه بعد**. |
-| "ماذا لو أخطأ النموذج؟" | لا يكتب شيئاً بلا موافقة بشرية، وكل ملاحظة مصحوبة بدليل: معرّف GHSA/CVE، رقم بلاغ، أو اسم قسم ناقص. |
-| "حدود الاستعلامات؟" | ٦٠/ساعة بلا مفتاح، ٥٠٠٠/ساعة بمفتاح — أي ما يكفي ~١٥٠ تحليلاً في الساعة. |
-| "ماذا لو كان المستودع خاصاً؟" | يعمل بمفتاح له صلاحية القراءة. وإن تعذّر، النظام يرفض بأدب ولا يخترع نتيجة. |
+| "What stops GitHub building this tomorrow?" | Technically nothing. But the Arabic market is not their priority, and cross-language duplication is not a problem they see. The advantage is temporal, not permanent -- say so plainly. |
+| "Why pay for what Snyk does for free?" | Snyk checks one dimension and needs installing on the repository. The value here is a combined verdict on a repository **you do not own yet**. |
+| "What if the model gets it wrong?" | It writes nothing without human approval, and every finding carries evidence: a GHSA/CVE id, an issue number, or the name of a missing section. |
+| "Rate limits?" | 60/hour without a token, 5,000/hour with one -- enough for roughly 150 analyses an hour. |
+| "What about private repositories?" | It works with a token that has read access. Where it cannot, the system declines politely and does not invent a result. |
 
 ---
 
-## ملاحظة على استخدام هذه الوثيقة
+## A note on using this document
 
-الأرقام هنا نوعان:
-- **مقيسة من النظام** (تكلفة التوكِنات، حصة المشرف، إخراج المشرف) — استخدمها كما هي
-- **تقديرات سوقية** (سعر ساعة المطوّر، نسبة تحويل العروض، عدد الوكالات) — تحقّق
-  منها بمكالمتين أو ثلاث مع وكالات حقيقية قبل العرض، وقل في السلايد إنها تقديرات
+The figures here are of two kinds:
+- **Measured from the system** (token cost, the supervisor's share, the
+  supervisor output) -- use them as they are
+- **Market estimates** (developer hourly rate, quote conversion rate, number of
+  agencies) -- verify them with two or three calls to real agencies before the
+  presentation, and say on the slide that they are estimates
 
-الفرق بين النوعين هو الفرق بين فريق يعرف منتجه وفريق يقرأ أرقاماً من شريحة.
+The difference between the two is the difference between a team that knows its
+product and a team reading numbers off a slide.

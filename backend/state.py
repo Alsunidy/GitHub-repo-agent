@@ -1,7 +1,7 @@
-"""العقد الأول — الـ State المشترك بين كل الـ nodes.
+"""Contract 1 -- the State shared by every node.
 
-هذا الملف يملكه المسار الأول. أي تغيير على أسماء الحقول أو أنواعها
-يستوجب إبلاغ الطرف الآخر فوراً (قاعدة العقود رقم 3).
+This file is owned by track 1. Any change to a field name or type must be
+reported to the other track immediately (contract rule 3).
 """
 
 import operator
@@ -9,45 +9,45 @@ from typing import Annotated, Optional, TypedDict
 
 
 class AgentState(TypedDict):
-    """حالة تحليل مستودع واحد، من الرابط حتى فتح البلاغ."""
+    """One repository analysis, from the URL through to the opened issue."""
 
-    # --- المدخلات ---
-    repo_url: str                 # الرابط كما أدخله المستخدم
-    language: str                 # "en" | "ar" — لغة التقرير والرسائل
+    # --- inputs ---
+    repo_url: str                 # the URL exactly as the user typed it
+    language: str                 # "en" | "ar" -- language of the report and messages
 
-    # --- يملؤها الحارس (Guardrail) ---
-    owner: str                    # اسم المالك من الرابط
-    repo: str                     # اسم المستودع من الرابط
-    rejection_reason: Optional[str]   # نص الرفض، أو None لو الطلب سليم
+    # --- filled by the guardrail ---
+    owner: str                    # owner name parsed from the URL
+    repo: str                     # repository name parsed from the URL
+    rejection_reason: Optional[str]   # rejection text, or None when the request is fine
 
-    # --- تملؤها أداة الجلب (تُكتب مرة واحدة) ---
-    repo_data: dict               # انظر "شكل repo_data" في CONTRACTS.md
+    # --- filled by the fetch tool (written once) ---
+    repo_data: dict               # see "repo_data shape" in CONTRACTS.md
 
-    # --- يقررها المشرف (Supervisor) في كل دورة ---
+    # --- decided by the supervisor on every round ---
     next_agent: str               # "security" | "issues" | "docs" | "done"
 
-    # --- تتراكم (Annotated + operator.add) ---
-    agents_done: Annotated[list[str], operator.add]      # أسماء الوكلاء المنفَّذين
-    findings: Annotated[list[dict], operator.add]        # انظر "شكل finding"
+    # --- accumulated (Annotated + operator.add) ---
+    agents_done: Annotated[list[str], operator.add]      # names of the agents that ran
+    findings: Annotated[list[dict], operator.add]        # see "finding shape"
 
-    # --- المخرجات النهائية ---
-    report: str                   # تقرير Markdown بلغة المستخدم
-    issue_url: Optional[str]      # رابط البلاغ بعد فتحه، أو None
+    # --- final outputs ---
+    report: str                   # Markdown report in the user's language
+    issue_url: Optional[str]      # issue link once opened, or None
 
-    # --- إضافة للعقد: الموافقة البشرية (HITL) ---
-    # بدون هذه الحقول لا يستطيع /approve معرفة ماذا يفتح.
-    # إضافية بالكامل: لا تكسر أي حقل كان الطرف الآخر يعتمد عليه.
-    issue_title: str              # عنوان البلاغ المقترح، يعرضه الـ UI قبل الموافقة
-    issue_body: str               # نص البلاغ المقترح (مختصر من التقرير)
-    approved: Optional[bool]      # None = لم يُسأل بعد | True = وافق | False = رفض
+    # --- contract addition: human-in-the-loop ---
+    # Without these fields /approve has no way to know what to open.
+    # Purely additive: nothing the other track relied on has changed.
+    issue_title: str              # proposed issue title, shown by the UI before approval
+    issue_body: str               # proposed issue body (condensed from the report)
+    approved: Optional[bool]      # None = not asked yet | True = approved | False = declined
 
-    # --- إضافة للعقد: أثر قرارات المشرف (للديمو والتتبّع) ---
-    # البريف يطلب إظهار التتبّع في الديمو: "أو حالتك المسجّلة".
+    # --- contract addition: a trace of the supervisor's decisions ---
+    # The brief asks for tracing to be shown in the demo: "or your own logged state".
     supervisor_log: Annotated[list[str], operator.add]
 
 
 def initial_state(repo_url: str, language: str = "en") -> AgentState:
-    """حالة ابتدائية كاملة — كل الحقول موجودة حتى لا يفشل أي node على مفتاح ناقص."""
+    """A complete starting state, so no node ever trips over a missing key."""
     return AgentState(
         repo_url=repo_url,
         language=language if language in ("en", "ar") else "en",

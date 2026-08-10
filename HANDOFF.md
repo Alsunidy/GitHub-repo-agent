@@ -1,59 +1,62 @@
-# تسليم المسار الأول → المسار الثاني
+# Handoff: track 1 → track 2
 
-> الـ graph مبنيّ ومختبَر كاملاً ويعمل الآن على stubs. هذه الوثيقة تقول لك
-> بالضبط ما الذي تبنيه وأين، حتى ينزل كودك مكان الـ stubs بلا تعديل سطر واحد
-> في الـ graph.
+> The graph is built, tested end to end, and currently running on stubs. This
+> document tells you exactly what to build and where, so your code drops in
+> without a single line changing in the graph.
 
 ---
 
-## ١. تعديلات على العقود — إضافية، لا تكسر شيئاً عندك
+## 1. Contract changes -- additive, nothing of yours breaks
 
-أُضيفت أربعة حقول لـ `AgentState`. **كل الحقول القديمة كما هي**، فما بنيتَه
-على العقد الأصلي يبقى صالحاً.
+Four fields were added to `AgentState`. **Every existing field is unchanged**,
+so anything you built against the original contract still holds.
 
-| الحقل | النوع | من يكتبه | لماذا أُضيف |
+| Field | Type | Written by | Why it was added |
 |---|---|---|---|
-| `issue_title` | `str` | **node التقرير (أنت)** | `/approve` يحتاج عنواناً ليفتح به البلاغ |
-| `issue_body` | `str` | **node التقرير (أنت)** | ونصاً ليكتبه فيه |
-| `approved` | `Optional[bool]` | الـ backend عند الاستئناف | `None`=لم يُسأل، `True`=وافق، `False`=رفض |
-| `supervisor_log` | `Annotated[list[str], operator.add]` | كل node | أثر القرارات — البريف يطلب إظهار التتبّع في الديمو |
+| `issue_title` | `str` | **the report node (you)** | `/approve` needs a title to open the issue with |
+| `issue_body` | `str` | **the report node (you)** | and a body to put in it |
+| `approved` | `Optional[bool]` | the backend on resume | `None` = not asked, `True` = approved, `False` = declined |
+| `supervisor_log` | `Annotated[list[str], operator.add]` | every node | a decision trace -- the brief asks for tracing in the demo |
 
-**السبب:** بدون `issue_title` و `issue_body` لا يعرف `/approve` ماذا يفتح.
-كان الخيار البديل استخراجهما من نص التقرير داخل الـ graph، وهو هشّ ويكسر عند
-تغيّر صياغة التقرير.
+**Reasoning:** without `issue_title` and `issue_body`, `/approve` has no way to
+know what to open. The alternative was parsing them back out of the report text
+inside the graph, which is brittle and breaks the moment the report wording
+changes.
 
-**ما يلزمك عملياً:** `report_node` يرجع ثلاثة مفاتيح بدل واحد:
+**What this means for you:** `report_node` returns three keys, not one:
 ```python
 return {"report": ..., "issue_title": ..., "issue_body": ...}
 ```
 
 ---
 
-## ٢. الـ LLM — محسوم
+## 2. The LLM -- settled
 
-المزوّد **OpenAI**، والموديل `gpt-4o-mini` (يتغيّر بـ `LLM_MODEL` في `.env`).
+The provider is **OpenAI**, the model is `gpt-4o-mini` (override with
+`LLM_MODEL` in `.env`).
 
-لا تبنِ `ChatOpenAI` بنفسك. نادِ المصنع:
+Do not build `ChatOpenAI` yourself. Call the factory:
 
 ```python
 from backend.llm import get_llm
 
-llm = get_llm(temperature=0)                      # chat model جاهز
-llm = get_llm().with_structured_output(MyModel)   # مخرَج منظَّم
+llm = get_llm(temperature=0)                      # a ready chat model
+llm = get_llm().with_structured_output(MyModel)   # structured output
 ```
 
-هكذا يبقى تغيير الموديل أو الإعدادات في ملف واحد بدل ستة.
+That keeps a model or settings change in one file instead of six.
 
-قبل أي تشخيص للـ graph، تأكّد من المفتاح وحده:
+Before debugging the graph, check the key on its own:
 ```bash
 python scripts/check_llm.py
 ```
 
 ---
 
-## ٣. الملفات التي تبنيها — والتواقيع التي يستوردها الـ graph
+## 3. What you build -- and the exact names the graph imports
 
-الـ graph يستورد هذه الأسماء بالضبط. أي اختلاف في الاسم أو المسار = كسر الربط.
+The graph imports these names precisely. A different name or path breaks the
+wiring.
 
 ### `backend/tools/github_tools.py`
 ```python
@@ -64,12 +67,12 @@ class RepoNotFound(Exception): ...
 class MissingToken(Exception): ...
 ```
 
-### `backend/tools/osv_tools.py` و `backend/tools/secret_tools.py`
-كما في `CONTRACTS.md` بلا تغيير — الـ graph لا يستوردهما مباشرة، وكلاء الأمن
-عندك هم من ينادونهما.
+### `backend/tools/osv_tools.py` and `backend/tools/secret_tools.py`
+Exactly as in `CONTRACTS.md`. The graph does not import these directly -- your
+security agent is what calls them.
 
 ### `backend/graph/agents.py`
-ثلاث دوال، كل واحدة تأخذ الـ state وترجع dict:
+Three functions, each taking the state and returning a dict:
 ```python
 def security_agent(state: AgentState) -> dict:
     return {"findings": [...], "agents_done": ["security"]}
@@ -81,87 +84,90 @@ def docs_agent(state: AgentState) -> dict:
     return {"findings": [...], "agents_done": ["docs"]}
 ```
 
-> **حرج:** كل وكيل **يجب** أن يرجع `agents_done` باسمه. الحقل تراكمي
-> (`operator.add`) فلا تُرجع القائمة كاملة — عنصراً واحداً فقط. لو نسيتَه،
-> يظنّ المشرف أن الوكيل لم يعمل ويعيده. (حزام أمان في المشرف يوقف الحلقة بعد
-> ٥ دورات، لكنه علاج للعرَض لا للسبب.)
+> **Critical:** every agent **must** return `agents_done` with its own name. The
+> field accumulates via `operator.add`, so return one element, never the whole
+> list. Forget it and the supervisor thinks the agent never ran and dispatches
+> it again. (A safety belt stops the loop after 5 rounds, but that treats the
+> symptom, not the cause.)
 
 ### `backend/graph/report.py`
 ```python
 def report_node(state: AgentState) -> dict:
     return {"report": ..., "issue_title": ..., "issue_body": ...}
 ```
-اقرأ `state["findings"]` (متراكمة من كل الوكلاء) و `state["language"]`
-(`"en"` أو `"ar"`) واكتب التقرير بلغة المستخدم.
+Read `state["findings"]` (accumulated from every agent) and `state["language"]`
+(`"en"` or `"ar"`), and write the report in the user's language.
 
 ---
 
-## ٤. ما الذي يصل إليك في الـ state
+## 4. What reaches you in the state
 
-عند تشغيل وكيلك تكون هذه الحقول جاهزة ومضمونة:
+By the time your agent runs, these fields are ready and guaranteed:
 
-- `repo_data` — كامل بشكل العقد، **ولن يكون فارغاً**: node الجلب يوقف المسار
-  قبلك لو رجع المستودع بلا محتوى.
-- `owner` / `repo` — منظَّفان ومُتحقَّق منهما.
-- `language` — `"en"` أو `"ar"` فقط، لا قيمة ثالثة.
-- `findings` — ما تراكم من الوكلاء السابقين (قد تكون فارغة لو كنت الأول).
-- `agents_done` — من عمل قبلك.
+- `repo_data` -- complete, in the contract's shape, and **never empty**: the
+  fetch node stops the run before you if the repository came back with nothing.
+- `owner` / `repo` -- parsed and validated.
+- `language` -- only `"en"` or `"ar"`, never a third value.
+- `findings` -- whatever earlier agents accumulated (possibly empty if you are first).
+- `agents_done` -- who ran before you.
 
-**لن يصل إليك المستودع غير الموجود ولا الرابط غير الصالح** — الحارس والجلب
-يوقفانهما قبل المشرف أصلاً.
+**A missing repository or an invalid URL never reaches you** -- the guardrail
+and fetch nodes stop both before the supervisor is even called.
 
 ---
 
-## ٥. المشرف قد لا يشغّل وكيلك — وهذا مقصود
+## 5. The supervisor may not run your agent -- by design
 
-المشرف يحسب "الأهلية" قبل أن يقرر:
+The supervisor computes eligibility before it decides:
 
-| الوكيل | لا يُشغَّل إذا |
+| Agent | Not run when |
 |---|---|
-| `security` | لا ملفات تبعيات **ولا** ملفات كود |
-| `issues` | لا بلاغات مفتوحة |
-| `docs` | — مؤهَّل دائماً (غياب README نفسه ملاحظة) |
+| `security` | there are no dependency files **and** no code files |
+| `issues` | there are no open issues |
+| `docs` | -- always eligible (a missing README is itself a finding) |
 
-فوق الأهلية، الـ LLM يختار الترتيب وقد يتوقف مبكراً. لذلك **لا تفترض في
-`report_node` أن الوكلاء الثلاثة عملوا** — اقرأ `agents_done` واكتب التقرير على
-ما وُجد فعلاً.
+On top of eligibility, the LLM chooses the order and may stop early. So **do not
+assume in `report_node` that all three agents ran** -- read `agents_done` and
+write the report from what actually happened.
 
 ---
 
-## ٦. قائمة حذف الـ stubs (نقطة الالتقاء الأولى)
+## 6. Stub deletion list (first integration point)
 
-البريف يمنع صراحةً أي أداة ترجع بيانات معلّبة. عند اكتمال كودك نحذف:
+The brief explicitly forbids any tool that returns canned data. When your code
+is ready we delete:
 
-1. `backend/stubs.py` — الملف كاملاً
-2. كتلة `try/except ImportError` في `backend/graph/guardrail.py`
-3. كتلة `try/except ImportError` في `backend/graph/fetch.py`
-4. كتلتَي `try/except ImportError` في `backend/graph/build.py`
+1. `backend/stubs.py` -- the whole file
+2. the `try/except ImportError` block in `backend/graph/guardrail.py`
+3. the `try/except ImportError` block in `backend/graph/fetch.py`
+4. both `try/except ImportError` blocks in `backend/graph/build.py`
 
-كل كتلة معلَّمة بـ `# ── مؤقت: يُحذف عند نقطة الالتقاء الأولى ──`.
-بعد الحذف تبقى `from ... import ...` المباشرة فقط.
+Each block is marked `# -- temporary: delete at the first integration point --`.
+After deletion only the direct `from ... import ...` lines remain.
 
-للتأكد من عدم بقاء شيء:
+To confirm nothing is left behind:
 ```bash
-grep -rn "stubs" backend/ && echo "بقي شيء!" || echo "نظيف"
+grep -rn "stubs" backend/ && echo "something remains!" || echo "clean"
 ```
 
 ---
 
-## ٧. تشغيل ما بُني حتى الآن
+## 7. Running what exists today
 
 ```bash
 pip install -r requirements.txt
-python scripts/smoke_graph.py        # ٦ سيناريوهات: سليم، فشل، رفض، موافقة/رفض نشر
-python scripts/smoke_supervisor.py   # ١١ فحصاً لمنطق المشرف
+python scripts/smoke_graph.py        # 6 scenarios: happy, failure, rejection, approve/decline
+python scripts/smoke_supervisor.py   # 11 checks of the supervisor's logic
 ```
-كلاهما يعمل بلا مفتاح LLM وبلا شبكة (المشرف يسقط على ترتيبه الحتمي).
+Both run with no LLM key and no network (the supervisor falls back to its
+deterministic order).
 
 ---
 
-## ٨. ما تبقّى مشتركاً
+## 8. What is still shared work
 
-الـ backend (FastAPI) لم يُبنَ بعد — هو عمل مشترك في نقطة الالتقاء الثانية
-حسب `WORK_SPLIT.md`. الـ graph جاهز له: `build_graph()` يرجع graph مُصرَّفاً
-بـ `MemorySaver` ومتوقفاً قبل `publish`، فالـ `/analyze` ينادي `invoke` ويقرأ
-التقرير، و`/approve` ينادي `update_state(config, {"approved": ...})` ثم
-`invoke(None, config)`.
+The FastAPI backend is not built yet -- it is joint work at the second
+integration point per `WORK_SPLIT.md`. The graph is ready for it:
+`build_graph()` returns a graph compiled with `MemorySaver` and paused before
+`publish`, so `/analyze` calls `invoke` and reads the report, and `/approve`
+calls `update_state(config, {"approved": ...})` then `invoke(None, config)`.

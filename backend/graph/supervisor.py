@@ -1,15 +1,17 @@
-"""node المشرف — عقل القرار: أي وكيل يعمل تالياً، أم انتهينا؟
+"""Supervisor node -- the decision brain: which agent runs next, or are we done?
 
-لماذا وكيل بدل تسلسل ثابت (السؤال الذي يطرحه البريف صراحةً):
-المستودعات ليست متشابهة. مستودع بلا ملف تبعيات ولا كود لا يحتاج وكيل أمن،
-ومستودع بلا بلاغات مفتوحة لا يحتاج وكيل بلاغات، ومستودع README فيه ٤٠٠٠ حرف
-مسألته غير مستودع بلا README إطلاقاً. تشغيل الثلاثة دائماً يحرق وقتاً وتوكِنات
-على فحوص فارغة، ويُخرج تقريراً مليئاً بـ"لا توجد ملاحظات".
+Why an agent instead of a fixed sequence (the question the brief asks outright):
+repositories are not alike. One with no dependency file and no source files has
+nothing for a security agent to do; one with no open issues has nothing for an
+issues agent; a 4000-character README is a different problem from no README at
+all. Always running all three burns time and tokens on empty checks and produces
+a report padded with "no findings".
 
-تقسيم المسؤولية هنا مقصود:
-  • الكود يحسب **من يستطيع** العمل (الأهلية) — ضمان أمان، لا يخطئ.
-  • الـ LLM يقرر **من الأولى** بالعمل الآن، ومتى نتوقف — حكم، لا حساب.
-  • عند تعطّل الـ LLM يسقط القرار على ترتيب حتمي — النظام لا يتوقف.
+The split of responsibility here is deliberate:
+  * Code computes *who can* work (eligibility) -- a safety guarantee, never wrong.
+  * The LLM decides *who should* work now, and when to stop -- judgement, not arithmetic.
+  * When the LLM is unavailable the decision falls back to a deterministic order,
+    so the system keeps running.
 """
 
 from typing import Literal
@@ -21,10 +23,10 @@ from backend.state import AgentState
 
 AGENTS = ("security", "issues", "docs")
 
-# ترتيب السقوط الحتمي عند غياب الـ LLM: الأخطر أولاً.
+# Deterministic fallback order when there is no LLM: most severe first.
 _FALLBACK_ORDER = ("security", "issues", "docs")
 
-# حزام أمان: أقصى عدد دورات للمشرف قبل الإنهاء القسري.
+# Safety belt: the most supervisor rounds allowed before forcing an end.
 _MAX_ROUNDS = len(AGENTS) + 2
 
 _SYSTEM = """You are the supervisor of a GitHub repository health review.
@@ -50,7 +52,7 @@ Answer with the agent name and one short sentence of reasoning."""
 
 
 class SupervisorDecision(BaseModel):
-    """قرار المشرف في دورة واحدة."""
+    """The supervisor's decision for a single round."""
 
     next_agent: Literal["security", "issues", "docs", "done"] = Field(
         description="The agent to run next, or 'done' to stop."
@@ -59,7 +61,7 @@ class SupervisorDecision(BaseModel):
 
 
 def supervisor_node(state: AgentState) -> dict:
-    """يقرأ حالة المستودع والوكلاء المنفَّذين، ويقرر الخطوة التالية."""
+    """Read the repository state and the agents already run, then decide."""
     done = list(state.get("agents_done", []))
     rounds = sum(1 for line in state.get("supervisor_log", []) if line.startswith("supervisor:"))
 
@@ -75,18 +77,18 @@ def supervisor_node(state: AgentState) -> dict:
     try:
         choice, reason = _ask_llm(state, signals, eligible, done)
         source = "llm"
-    except Exception as exc:  # noqa: BLE001 — مفتاح ناقص، شبكة، رد غير صالح
+    except Exception as exc:  # noqa: BLE001 -- missing key, network, invalid response
         choice = _first_eligible(eligible)
         reason = f"LLM unavailable ({type(exc).__name__}), deterministic order"
         source = "fallback"
 
-    # التحقق من قرار الـ LLM — لا نثق بمخرَج نموذج في التوجيه.
+    # Validate the model's answer -- a model output never routes unchecked.
     if choice not in eligible and choice != "done":
         choice = _first_eligible(eligible)
         reason = f"invalid choice corrected → {choice}"
         source = "corrected"
 
-    # لا نسمح بتقرير فارغ: لو لم يعمل أي وكيل بعد، يجب تشغيل واحد.
+    # An empty report is not allowed: if nothing has run yet, something must.
     if choice == "done" and not done:
         choice = _first_eligible(eligible)
         reason = f"refused to stop before any agent ran → {choice}"
@@ -96,7 +98,7 @@ def supervisor_node(state: AgentState) -> dict:
 
 
 def _first_eligible(eligible: list[str]) -> str:
-    """أول مؤهَّل بترتيب الخطورة — يُنادى فقط و eligible غير فارغة."""
+    """First eligible agent by severity order. Only called with a non-empty list."""
     return next(a for a in _FALLBACK_ORDER if a in eligible)
 
 
@@ -108,7 +110,7 @@ def _decide(choice: str, reason: str, source: str = "rule") -> dict:
 
 
 def _signals(repo_data: dict) -> dict:
-    """إشارات مختصرة يُبنى عليها القرار — لا نُمرّر المستودع كاملاً للنموذج."""
+    """A compact summary to decide on -- we do not send the whole repo to the model."""
     meta = repo_data.get("meta", {}) or {}
     readme = repo_data.get("readme", "") or ""
     issues = repo_data.get("open_issues", []) or []
@@ -133,19 +135,19 @@ def _signals(repo_data: dict) -> dict:
 
 
 def _eligible_agents(signals: dict, done: list[str]) -> list[str]:
-    """من يملك مادة حقيقية ليعمل عليها؟ حساب حتمي، لا اجتهاد."""
+    """Who has real material to work on? Computed, never guessed."""
     eligible = []
     if "security" not in done and (signals["dependency_files"] or signals["code_file_count"]):
         eligible.append("security")
     if "issues" not in done and signals["open_issue_count"] > 0:
         eligible.append("issues")
     if "docs" not in done:
-        eligible.append("docs")  # غياب README نفسه ملاحظة، فالوكيل مؤهل دائماً
+        eligible.append("docs")  # a missing README is itself a finding, so always eligible
     return eligible
 
 
 def _ask_llm(state: AgentState, signals: dict, eligible: list[str], done: list[str]):
-    """يسأل النموذج ويرجع (choice, reason). يرمي عند أي عطل — المنادي يتكفّل."""
+    """Ask the model, return (choice, reason). Raises on any fault; the caller handles it."""
     llm = get_llm(temperature=0).with_structured_output(SupervisorDecision)
     prompt = (
         f"Repository signals:\n"
@@ -169,6 +171,6 @@ def _ask_llm(state: AgentState, signals: dict, eligible: list[str], done: list[s
 
 
 def route_from_supervisor(state: AgentState) -> str:
-    """المسار الشرطي الثالث — الحلقة: كل وكيل يعود للمشرف، و"done" يذهب للتقرير."""
+    """Conditional edge 3 -- the loop: an agent name, or on to the report."""
     choice = state.get("next_agent", "done")
     return choice if choice in AGENTS else "report"

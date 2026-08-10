@@ -1,11 +1,13 @@
-# وثيقة العقود — GitHub Repo Health Agent
+# Contracts -- GitHub Repo Health Agent
 
-> هذه الوثيقة يُتفق عليها **قبل** بدء الكود. أي تعديل عليها لاحقاً = إبلاغ فوري للطرف الآخر.
-> الهدف: كل طرف يبني قطعته وهو يعرف شكل قطعة الآخر بالضبط، بدون انتظار.
+> This document is agreed **before** any code is written. Any later change to it
+> means telling the other side immediately.
+> The goal: each side builds its piece knowing exactly what the other's piece
+> looks like, without waiting.
 
 ---
 
-## العقد الأول: الـ State
+## Contract 1: the State
 
 ```python
 # backend/state.py
@@ -14,42 +16,43 @@ from typing import Annotated, Optional, TypedDict
 
 
 class AgentState(TypedDict):
-    # --- المدخلات ---
-    repo_url: str                 # الرابط كما أدخله المستخدم
-    language: str                 # "en" | "ar" — لغة التقرير والرسائل
+    # --- inputs ---
+    repo_url: str                 # the URL exactly as the user typed it
+    language: str                 # "en" | "ar" -- language of the report and messages
 
-    # --- يملؤها الحارس (Guardrail) ---
-    owner: str                    # اسم المالك من الرابط
-    repo: str                     # اسم المستودع من الرابط
-    rejection_reason: Optional[str]   # نص الرفض، أو None لو الطلب سليم
+    # --- filled by the guardrail ---
+    owner: str                    # owner name parsed from the URL
+    repo: str                     # repository name parsed from the URL
+    rejection_reason: Optional[str]   # rejection text, or None when the request is fine
 
-    # --- تملؤها أداة الجلب (تُكتب مرة واحدة) ---
-    repo_data: dict               # انظر "شكل repo_data" أدناه
+    # --- filled by the fetch tool (written once) ---
+    repo_data: dict               # see "repo_data shape" below
 
-    # --- يقررها المشرف (Supervisor) في كل دورة ---
+    # --- decided by the supervisor on every round ---
     next_agent: str               # "security" | "issues" | "docs" | "done"
 
-    # --- تتراكم (Annotated + operator.add) ---
-    agents_done: Annotated[list[str], operator.add]      # أسماء الوكلاء المنفَّذين
-    findings: Annotated[list[dict], operator.add]        # انظر "شكل finding" أدناه
+    # --- accumulated (Annotated + operator.add) ---
+    agents_done: Annotated[list[str], operator.add]      # names of the agents that ran
+    findings: Annotated[list[dict], operator.add]        # see "finding shape" below
 
-    # --- المخرجات النهائية ---
-    report: str                   # تقرير Markdown بلغة المستخدم
-    issue_url: Optional[str]      # رابط البلاغ بعد فتحه، أو None
+    # --- final outputs ---
+    report: str                   # Markdown report in the user's language
+    issue_url: Optional[str]      # issue link once opened, or None
 
-    # --- تعديل ١ (المسار الأول) — إضافي، لا يكسر أي حقل قائم ---
-    issue_title: str              # عنوان البلاغ المقترح — يكتبه node التقرير
-    issue_body: str               # نص البلاغ المقترح — يكتبه node التقرير
-    approved: Optional[bool]      # None=لم يُسأل | True=وافق | False=رفض
-    supervisor_log: Annotated[list[str], operator.add]   # أثر القرارات (تراكمي)
+    # --- amendment 1 (track 1) -- additive, breaks no existing field ---
+    issue_title: str              # proposed issue title -- written by the report node
+    issue_body: str               # proposed issue body -- written by the report node
+    approved: Optional[bool]      # None = not asked | True = approved | False = declined
+    supervisor_log: Annotated[list[str], operator.add]   # decision trace (accumulates)
 ```
 
-> **تعديل ١ — أُضيفت أربعة حقول.** بدون `issue_title` و `issue_body` لا يعرف
-> `/approve` ماذا يفتح، وبدون `approved` لا يعرف الـ graph نتيجة الموافقة.
-> و`supervisor_log` يغطّي طلب البريف بإظهار التتبّع في الديمو.
-> الحقول القديمة لم تتغيّر. التفاصيل في `HANDOFF.md`.
+> **Amendment 1 -- four fields added.** Without `issue_title` and `issue_body`,
+> `/approve` has no way to know what to open, and without `approved` the graph
+> has no way to know the outcome of the approval. `supervisor_log` covers the
+> brief's request to show tracing in the demo.
+> No existing field changed. Details in `HANDOFF.md`.
 
-### شكل `repo_data`
+### `repo_data` shape
 ```python
 {
     "meta": {
@@ -59,8 +62,8 @@ class AgentState(TypedDict):
         "pushed_at": str,          # ISO date
         "language": str | None,
     },
-    "readme": str,                 # نص README (فارغ "" لو غير موجود)
-    "open_issues": [               # أحدث 30 بلاغاً مفتوحاً
+    "readme": str,                 # README text ("" when absent)
+    "open_issues": [               # the 30 most recent open issues
         {
             "number": int,
             "title": str,
@@ -70,47 +73,48 @@ class AgentState(TypedDict):
             "labels": list[str],
         }
     ],
-    "dependency_files": {          # اسم الملف -> محتواه (قد يكون فارغاً {})
+    "dependency_files": {          # filename -> contents (may be empty {})
         "requirements.txt": str,
     },
-    "code_files": {                # ملفات كود لفحص المفاتيح المكشوفة
+    "code_files": {                # code files, for the exposed-secret scan
         "path/to/file.py": str,
     },
 }
 ```
 
-### شكل `finding` (كل وكيل يضيف عنصراً واحداً على الأقل)
+### `finding` shape (every agent adds at least one)
 ```python
 {
     "agent": str,        # "security" | "issues" | "docs"
     "severity": str,     # "critical" | "high" | "medium" | "low" | "none"
-    "title": str,        # عنوان قصير للمشكلة
-    "detail": str,       # الشرح (نص أو Markdown)
-    "evidence": list[str],   # أدلة: معرّفات GHSA/CVE، أرقام بلاغات، أسماء أقسام ناقصة
+    "title": str,        # short title for the problem
+    "detail": str,       # the explanation (text or Markdown)
+    "evidence": list[str],   # GHSA/CVE ids, issue numbers, missing section names
 }
 ```
 
 ---
 
-## العقد الثاني: تواقيع الأدوات
+## Contract 2: tool signatures
 
-> كل دالة **مستقلة تماماً** — تُختبر بسكربت صغير بدون الـ graph.
+> Every function is **fully standalone** -- testable with a small script,
+> without the graph.
 
 ```python
 # backend/tools/github_tools.py
 
 def parse_repo_url(url: str) -> tuple[str, str] | None:
-    """يرجع (owner, repo) لو الرابط رابط مستودع GitHub صالح، وإلا None."""
+    """Return (owner, repo) for a valid GitHub repository URL, else None."""
 
 
 def fetch_repo_data(owner: str, repo: str) -> dict:
-    """يرجع dict بشكل repo_data أعلاه.
-    يرمي RepoNotFound لو المستودع غير موجود أو خاص."""
+    """Return a dict in the repo_data shape above.
+    Raises RepoNotFound when the repository is missing or private."""
 
 
 def open_issue(owner: str, repo: str, title: str, body: str) -> str:
-    """يفتح بلاغاً فعلياً ويرجع رابطه (html_url).
-    يرمي MissingToken لو GITHUB_TOKEN غير مضبوط."""
+    """Open a real issue and return its link (html_url).
+    Raises MissingToken when GITHUB_TOKEN is not set."""
 
 
 class RepoNotFound(Exception): ...
@@ -121,40 +125,38 @@ class MissingToken(Exception): ...
 # backend/tools/osv_tools.py
 
 def parse_requirements(text: str) -> list[tuple[str, str]]:
-    """يستخرج أزواج (package, version) من الأسطر المثبّتة بـ == فقط."""
+    """Extract (package, version) pairs from lines pinned with == only."""
 
 
 def check_vulnerabilities(requirements_text: str, limit: int = 10) -> list[dict]:
-    """يستعلم OSV.dev لكل حزمة. يرجع قائمة عناصر بالشكل:
-    {"package": str, "version": str, "vuln_ids": list[str], "total_count": int, "summary": str}
-    حيث vuln_ids محدودة بأول 5 معرّفات (لتقليل حجم البيانات الممرّرة للوكلاء)،
-    total_count هو العدد الكلي الحقيقي للثغرات، وsummary هو ملخص أول ثغرة فقط.
-    وعند فشل الاستعلام لحزمة:
+    """Query OSV.dev for each package. Returns a list shaped like:
+    {"package": str, "version": str, "vuln_ids": list[str], "summary": str}
+    and on a failed query for a package:
     {"package": str, "version": str, "error": str}
-    لا يرمي استثناءً — الأخطاء تُسجَّل داخل النتائج."""
+    Never raises -- errors are recorded inside the results."""
 ```
 
 ```python
 # backend/tools/secret_tools.py
 
 def scan_secrets(code_files: dict[str, str]) -> list[dict]:
-    """يفحص محتوى الملفات بأنماط معروفة (ghp_, sk-, AKIA...).
-    يرجع: {"file": str, "line": int, "kind": str, "snippet": str}
-    (snippet مقنَّع جزئياً — لا يُظهر المفتاح كاملاً)."""
+    """Scan file contents for known key patterns (ghp_, sk-, AKIA...).
+    Returns: {"file": str, "line": int, "kind": str, "snippet": str}
+    (the snippet is partially masked -- never the whole key)."""
 ```
 
 ---
 
-## العقد الثالث: واجهة الـ API
+## Contract 3: the API
 
-> الواجهة تتخاطب مع الخادم عبر HTTP فقط — لا تستورد الـ graph إطلاقاً.
+> The UI talks to the server over HTTP only -- it never imports the graph.
 
 ### `POST /analyze`
 ```jsonc
-// الطلب
+// request
 { "repo_url": "https://github.com/owner/repo", "language": "en" }
 
-// الرد — حالة النجاح (النظام متوقف عند الموافقة البشرية)
+// response -- success (the system is paused at human approval)
 {
   "thread_id": "uuid-string",
   "status": "awaiting_approval",
@@ -162,24 +164,24 @@ def scan_secrets(code_files: dict[str, str]) -> list[dict]:
   "agents_done": ["security", "issues", "docs"]
 }
 
-// الرد — حالة الرفض (رابط غير صالح / مستودع غير موجود)
+// response -- rejected (invalid URL / repository not found)
 {
   "thread_id": "uuid-string",
   "status": "rejected",
-  "report": "نص الرفض المؤدب",
+  "report": "the polite rejection text",
   "agents_done": []
 }
 ```
 
 ### `POST /approve`
 ```jsonc
-// الطلب
+// request
 { "thread_id": "uuid-string", "approved": true }
 
-// الرد — بعد الموافقة
+// response -- after approval
 { "status": "done", "issue_url": "https://github.com/owner/repo/issues/12" }
 
-// الرد — بعد الرفض
+// response -- after declining
 { "status": "cancelled", "issue_url": null }
 ```
 
@@ -190,9 +192,15 @@ def scan_secrets(code_files: dict[str, str]) -> list[dict]:
 
 ---
 
-## قواعد العمل المتوازي
+## Rules for working in parallel
 
-1. **الملفات مفصولة:** لا يعدّل الطرفان الملف نفسه. (الـ graph/backend لطرف، الأدوات/الواجهة للطرف الآخر.)
-2. **Stubs مؤقتة:** من ينتظر قطعة الآخر يكتب نسخة وهمية بسيطة بنفس التوقيع ويكمل عليها — **وتُحذف كلها قبل التسليم** (البريف يمنع الأدوات الوهمية في النسخة النهائية).
-3. **أي تعديل على هذه الوثيقة = إبلاغ فوري.** تغيير شكل مخرجات دالة بدون إبلاغ هو السبب الأول لتعطل الفرق.
-4. **نقاط الالتقاء ثلاث فقط:** (أ) الاتفاق على هذه الوثيقة، (ب) ربط الأدوات الحقيقية بالـ graph، (ج) ربط الواجهة بالخادم الحقيقي.
+1. **Separate files:** neither side edits the same file. (The graph/backend to
+   one side, the tools/UI to the other.)
+2. **Temporary stubs:** whoever is waiting on the other's piece writes a simple
+   fake with the same signature and carries on -- **and all of them are deleted
+   before submission** (the brief forbids fake tools in the final build).
+3. **Any change to this document means telling the other side immediately.**
+   Silently changing the shape of a function's output is the number one cause of
+   teams breaking each other's work.
+4. **Only three meeting points:** (a) agreeing this document, (b) wiring the
+   real tools into the graph, (c) pointing the UI at the real server.
