@@ -1,12 +1,9 @@
 .env
-*.patch
-proof_*.txt
-.venv/
 venv/
 __pycache__/
-*.py[cod]
+*.pyc
 .pytest_cache/
-.ruff_cache/
-.streamlit/secrets.toml
-.DS_Store
-*.egg-info/
+
+# fake secrets for scan_secrets() testing — matches real credential formats,
+# would trip GitHub push protection. Regenerate locally, see HANDOFF_TRACK2.md.
+scripts/fixtures/fake_secrets_sample.py
