@@ -95,7 +95,7 @@ def test_report_node_by_area_condenses_findings_already_in_top_issues(monkeypatc
         _finding("security", "high", "Vulnerable package"),
     ]
     state = _state(findings, ["security", "issues", "docs"])
-    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations="Fix it."))
+    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations=["Fix it."]))
     monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
 
     result = report_node(state)
