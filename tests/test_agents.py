@@ -162,6 +162,43 @@ def test_issues_agent_llm_success_reports_duplicates_and_priority(monkeypatch):
     assert duplicate["severity"] == "medium"
 
 
+def test_issues_agent_drops_issue_numbers_the_llm_invented(monkeypatch):
+    """Evidence must come from the real input, never the model's output --
+    a number the LLM attaches that isn't one of this repo's actual open
+    issues (e.g. a stray #4 when only #1/#2 exist) must not reach evidence."""
+    open_issues = [
+        _issue(1, "App crashes on empty input", "Crashes on empty string.", 5, 2),
+        _issue(2, "يتعطل التطبيق عند إدخال فارغ", "نفس المشكلة بالعربية.", 3, 0),
+    ]
+    state = _state(_base_repo_data(open_issues=open_issues))
+
+    analysis = IssuesAnalysis(
+        duplicate_groups=[
+            DuplicateGroup(
+                issue_numbers=[1, 2, 4],  # 4 does not exist in open_issues
+                title="Duplicate crash reports",
+                detail="Same bug reported in two languages.",
+            )
+        ],
+        priority=PriorityRanking(
+            issue_numbers=[4], title="Fix issue 4", detail="Hallucinated priority."
+        ),
+    )
+    fake = _fake_llm(return_value=analysis)
+    monkeypatch.setattr("backend.graph.agents.get_llm", lambda *a, **k: fake)
+
+    result = issues_agent(state)
+
+    assert result["agents_done"] == ["issues"]
+    # the duplicate group survives with only the two real numbers
+    duplicate = next(f for f in result["findings"] if f["title"] == "Duplicate crash reports")
+    assert duplicate["evidence"] == ["#1", "#2"]
+    # the priority finding referenced ONLY the fabricated number, so once
+    # #4 is dropped there is nothing real left -- it must not appear at all
+    assert not any(f["title"] == "Fix issue 4" for f in result["findings"])
+    assert not any("#4" in f["evidence"] for f in result["findings"])
+
+
 def test_issues_agent_stale_detection_is_deterministic_when_llm_fails(monkeypatch):
     open_issues = [_issue(3, "Typo in docs", "recieve -> receive", 200, 0)]
     state = _state(_base_repo_data(open_issues=open_issues))

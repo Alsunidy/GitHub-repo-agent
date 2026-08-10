@@ -87,6 +87,30 @@ def test_report_node_ranks_findings_by_severity_deterministically(monkeypatch):
     assert "Missing license" in result["report"]
 
 
+def test_report_node_by_area_condenses_findings_already_in_top_issues(monkeypatch):
+    findings = [
+        _finding("docs", "low", "Missing license"),
+        _finding("security", "critical", "Exposed secret"),
+        _finding("issues", "medium", "Duplicate issues"),
+        _finding("security", "high", "Vulnerable package"),
+    ]
+    state = _state(findings, ["security", "issues", "docs"])
+    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations="Fix it."))
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    result = report_node(state)
+    by_area = result["report"].split("## Findings by Area")[1].split("## Recommendations")[0]
+
+    # the three findings that made the top 3 are pointed at, not repeated
+    for title in ("Exposed secret", "Vulnerable package", "Duplicate issues"):
+        line = next(line for line in by_area.splitlines() if title in line)
+        assert "see" in line.lower() and "detail for" not in line
+
+    # the one finding that did NOT make the top 3 still gets its full text
+    missing_license_line = next(line for line in by_area.splitlines() if "Missing license" in line)
+    assert "detail for Missing license" in missing_license_line
+
+
 def test_report_node_all_none_findings_gives_healthy_report_without_llm(monkeypatch):
     findings = [
         _finding("security", "none", "No security findings"),
