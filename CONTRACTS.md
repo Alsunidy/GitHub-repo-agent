@@ -130,8 +130,10 @@ def parse_requirements(text: str) -> list[tuple[str, str]]:
 
 def check_vulnerabilities(requirements_text: str, limit: int = 10) -> list[dict]:
     """Query OSV.dev for each package. Returns a list shaped like:
-    {"package": str, "version": str, "vuln_ids": list[str], "summary": str}
-    and on a failed query for a package:
+    {"package": str, "version": str, "vuln_ids": list[str], "total_count": int, "summary": str}
+    where vuln_ids is capped at the first 5 ids (to keep what's passed to the
+    agents small), total_count is the real total, and summary covers only the
+    first vulnerability. On a failed query for a package:
     {"package": str, "version": str, "error": str}
     Never raises -- errors are recorded inside the results."""
 ```
