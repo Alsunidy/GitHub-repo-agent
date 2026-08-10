@@ -1,1 +1,1 @@
-"""محطات الـ graph والمسارات الشرطية بينها."""
+"""The graph's work stations and the conditional edges between them."""

@@ -1,9 +1,9 @@
-"""يتحقق أن مفتاح الـ LLM يعمل فعلاً — قبل اتهام الـ graph.
+"""Verify the OpenAI key actually works -- before blaming the graph.
 
     python scripts/check_llm.py
 
-يطبع المزوّد والموديل، ثم ينفّذ استدعاءً واحداً بمخرَج منظَّم (نفس الآلية التي
-يستخدمها المشرف). نجاحه يعني أن مسار الـ LLM في المشرف سيعمل.
+Makes one structured-output call, the same mechanism the supervisor uses.
+If this passes, the supervisor's LLM path will work.
 """
 
 import sys
@@ -15,35 +15,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import os  # noqa: E402
 
 from backend.graph.supervisor import SupervisorDecision  # noqa: E402
-from backend.llm import _KEY_VARS, _MODELS, LLMUnavailable, get_llm  # noqa: E402
-
-# بادئات المفاتيح — أكثر خطأ شائع هو مفتاح من مزوّد موجَّه لخادم مزوّد آخر.
-_PREFIXES = {"sk-or-v1": "openrouter", "sk-ant-": "anthropic"}
+from backend.llm import DEFAULT_MODEL, LLMUnavailable, get_llm  # noqa: E402
 
 
 def main() -> int:
-    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    key_var = _KEY_VARS.get(provider, "?")
-    key = os.getenv(key_var, "")
-
-    print(f"المزوّد : {provider}")
-    print(f"الموديل : {os.getenv('LLM_MODEL') or _MODELS.get(provider, '?')}")
-    print(f"المفتاح : {key_var} = {'موجود' if key else 'غير موجود'}")
-
-    for prefix, owner in _PREFIXES.items():
-        if key.startswith(prefix) and owner != provider:
-            print(f"\n✗ المفتاح يبدأ بـ {prefix} ⇒ هذا مفتاح {owner}، "
-                  f"لكن LLM_PROVIDER={provider}.")
-            print(f"   الحل: اضبط LLM_PROVIDER={owner} في .env، أو استخدم مفتاح {provider}.")
-            return 1
+    key = os.getenv("OPENAI_API_KEY", "")
+    print(f"model : {os.getenv('LLM_MODEL') or DEFAULT_MODEL}")
+    print(f"key   : OPENAI_API_KEY = {'set' if key else 'not set'}")
 
     try:
         llm = get_llm(temperature=0).with_structured_output(SupervisorDecision)
     except LLMUnavailable as exc:
-        print(f"\n✗ لم يُبنَ الـ LLM: {exc}")
+        print(f"\nFAIL: {exc}")
         return 1
 
-    print("\nأرسل استدعاءً تجريبياً بمخرَج منظَّم...")
+    print("\nSending one structured-output call...")
     try:
         decision = llm.invoke(
             [
@@ -54,13 +40,13 @@ def main() -> int:
             ]
         )
     except Exception as exc:  # noqa: BLE001
-        print(f"✗ فشل الاستدعاء: {type(exc).__name__}: {exc}")
-        print("\nالأسباب الشائعة: مفتاح خاطئ، أو رصيد منتهٍ، أو اسم موديل غير متاح "
-              "لحسابك (جرّب LLM_MODEL في .env).")
+        print(f"FAIL: call failed: {type(exc).__name__}: {exc}")
+        print("\nUsual causes: wrong key, exhausted credit, or a model name your "
+              "account cannot access (try LLM_MODEL in .env).")
         return 1
 
-    print(f"✓ الرد: next_agent={decision.next_agent!r} reason={decision.reason!r}")
-    print("\nالمخرَج المنظَّم يعمل — مسار الـ LLM في المشرف جاهز.")
+    print(f"PASS: next_agent={decision.next_agent!r} reason={decision.reason!r}")
+    print("\nStructured output works -- the supervisor's LLM path is ready.")
     return 0
 
 

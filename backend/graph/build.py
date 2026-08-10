@@ -1,4 +1,4 @@
-"""تركيب الـ graph: الـ nodes، المسارات الشرطية، الحلقة، ونقطة الموافقة البشرية.
+"""Graph assembly: nodes, conditional edges, the loop, and the human approval gate.
 
     START
       ↓
@@ -11,14 +11,14 @@
       ↓ report                                              │
     report                                                  │
       ↓                                                     │
-  ⏸ interrupt — الموافقة البشرية                            │
+  ⏸ interrupt — human approval                              │
       ↓                                                     │
     publish ────────────────────────────────────────────────┴──→ END
 
-ثلاثة مسارات شرطية تغيّر المسار فعلياً:
-  1. route_after_guardrail — رابط غير صالح ينهي التنفيذ فوراً بلا أي استدعاء خارجي.
-  2. route_after_fetch     — فشل الأداة ينهي التنفيذ بلا تشغيل أي وكيل.
-  3. route_from_supervisor — الحلقة: أي وكيل، أم إلى التقرير؟
+Three conditional edges that genuinely change the path:
+  1. route_after_guardrail — an invalid URL ends the run with no external call.
+  2. route_after_fetch     — a tool failure ends the run before any agent starts.
+  3. route_from_supervisor — the loop: which agent, or on to the report?
 """
 
 from langgraph.checkpoint.memory import MemorySaver
@@ -29,7 +29,7 @@ from backend.graph.guardrail import guardrail_node, route_after_guardrail
 from backend.graph.supervisor import route_from_supervisor, supervisor_node
 from backend.state import AgentState
 
-# ── مؤقت: يُحذف عند نقطة الالتقاء الأولى (انظر backend/stubs.py) ──
+# -- temporary: delete at the first integration point (see backend/stubs.py) --
 try:
     from backend.graph.agents import docs_agent, issues_agent, security_agent
     from backend.graph.report import report_node
@@ -40,8 +40,9 @@ try:
     from backend.tools.github_tools import MissingToken, open_issue
 except ImportError:  # pragma: no cover
     from backend.stubs import MissingToken, open_issue
-# ──────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
+# User-facing text stays bilingual -- see the note in guardrail.py.
 _PUBLISH_MESSAGES = {
     "cancelled": {
         "en": "No issue was opened — you declined.",
@@ -63,7 +64,7 @@ _PUBLISH_MESSAGES = {
 
 
 def publish_node(state: AgentState) -> dict:
-    """يعمل بعد الموافقة البشرية فقط — الوحيد الذي يكتب في العالم الخارجي."""
+    """Runs only after human approval -- the only node that writes to the world."""
     language = state.get("language", "en")
 
     if not state.get("approved"):
@@ -88,7 +89,7 @@ def publish_node(state: AgentState) -> dict:
                 f"publish: failed — {_PUBLISH_MESSAGES['missing_token'][language]}"
             ],
         }
-    except Exception as exc:  # noqa: BLE001 — فشل الكتابة لا يُسقط التحليل
+    except Exception as exc:  # noqa: BLE001 -- a write failure must not lose the analysis
         message = _PUBLISH_MESSAGES["failed"][language].format(
             error=f"{type(exc).__name__}: {exc}"
         )
@@ -98,7 +99,7 @@ def publish_node(state: AgentState) -> dict:
 
 
 def build_graph(checkpointer=None):
-    """يبني الـ graph ويُصرّفه متوقفاً قبل النشر بانتظار الموافقة البشرية."""
+    """Build the graph, compiled to pause before publishing for human approval."""
     builder = StateGraph(AgentState)
 
     builder.add_node("guardrail", guardrail_node)
@@ -112,21 +113,21 @@ def build_graph(checkpointer=None):
 
     builder.add_edge(START, "guardrail")
 
-    # (1) رابط غير صالح → نهاية مؤدبة بلا أي استدعاء خارجي
+    # (1) invalid URL -> a polite end, with no external call at all
     builder.add_conditional_edges(
         "guardrail",
         route_after_guardrail,
         {"rejected": END, "fetch": "fetch"},
     )
 
-    # (2) فشل الجلب → نهاية بلا تشغيل أي وكيل
+    # (2) fetch failure -> end without running a single agent
     builder.add_conditional_edges(
         "fetch",
         route_after_fetch,
         {"failed": END, "supervisor": "supervisor"},
     )
 
-    # (3) الحلقة: المشرف يوزّع، وكل وكيل يعود إليه
+    # (3) the loop: the supervisor dispatches, every agent returns to it
     builder.add_conditional_edges(
         "supervisor",
         route_from_supervisor,
@@ -143,7 +144,8 @@ def build_graph(checkpointer=None):
     builder.add_edge("report", "publish")
     builder.add_edge("publish", END)
 
-    # الـ checkpointer شرط لعمل الـ interrupt: بدونه لا يوجد thread_id يُستأنف منه.
+    # The checkpointer is what makes the interrupt work: without it there is no
+    # thread_id to resume from.
     return builder.compile(
         checkpointer=checkpointer or MemorySaver(),
         interrupt_before=["publish"],

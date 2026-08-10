@@ -1,83 +1,99 @@
-# تقسيمة العمل — GitHub Repo Health Agent
+# Work split -- GitHub Repo Health Agent
 
-> **الهدف:** كل طرف يبني قطعته بشكل مستقل، بلا انتظار الطرف الآخر.
-> **المرجع الأساسي:** وثيقة العقود `CONTRACTS.md` — تُقرأ ويُتفق عليها قبل أي كود.
-> **ملاحظة على المصطلح:** "node" = محطة عمل داخل الـ graph. "العقود" = وثيقة الاتفاق على الواجهات.
-
----
-
-## قبل البدء (معاً — 30 دقيقة)
-
-قراءة `CONTRACTS.md` والاتفاق على ثلاثة أشياء:
-1. شكل الـ State (أسماء الحقول وأنواعها وأيها يتراكم)
-2. تواقيع الأدوات (اسم كل دالة، مدخلاتها، شكل مخرجاتها)
-3. عقد الـ API (المسارات، شكل الطلب، شكل الرد)
-
-أي اعتراض أو تعديل يُحسم الآن — بعدها تُجمّد الوثيقة.
+> **Goal:** each side builds its piece independently, without waiting on the other.
+> **Primary reference:** the contracts document `CONTRACTS.md` -- read and agreed
+> before any code.
+> **A note on terminology:** "node" = a work station inside the graph.
+> "the contracts" = the agreed interfaces document.
 
 ---
 
-## المسار الأول — هيكل الـ Graph وعقل القرار
+## Before starting (together -- 30 minutes)
 
-| البند | الوصف |
+Read `CONTRACTS.md` and agree on three things:
+1. The shape of the State (field names, types, and which accumulate)
+2. The tool signatures (each function's name, inputs, and output shape)
+3. The API contract (routes, request shape, response shape)
+
+Any objection or change is settled now -- after that the document is frozen.
+
+---
+
+## Track 1 -- graph structure and the decision brain
+
+| Item | Description |
 |---|---|
-| `state.py` | تعريف الـ State: الحقول وأنواعها، وأيها يتراكم وأيها يُستبدل |
-| node الحارس (Guardrail) | التحقق من صلاحية رابط GitHub، وتوجيه غير الصالح لمسار الرفض المؤدب |
-| node الجلب (Fetch) | استدعاء أداة GitHub ووضع البيانات في الـ State + مسار الفشل عند عدم وجود المستودع |
-| **node المشرف (Supervisor)** | قراءة حالة المستودع والوكلاء المنفَّذين، وتقرير أي وكيل يعمل تالياً |
-| المسارات الشرطية + الحلقة | ربط الـ nodes، شروط التفرع، والعودة للمشرف بعد كل وكيل |
+| `state.py` | Define the State: fields and types, and which accumulate versus which are replaced |
+| Guardrail node | Verify the GitHub URL is valid, and route anything invalid to a polite rejection |
+| Fetch node | Call the GitHub tool and put the data in the State, plus the failure path when the repository is missing |
+| **Supervisor node** | Read the repository state and the agents already run, and decide which agent runs next |
+| Conditional edges + the loop | Wire the nodes, the branching conditions, and the return to the supervisor after each agent |
 
-**كيف يعمل بلا انتظار:** ملف `stubs.py` يحتوي نسخاً وهمية من أدوات المسار الثاني بنفس التواقيع المتفق عليها — يُبنى الـ graph كاملاً ويُختبر عليها، وتُحذف عند نقطة الربط الأولى.
+**How it works without waiting:** a `stubs.py` file holds fake versions of
+track 2's tools with the agreed signatures -- the whole graph is built and
+tested against them, and they are deleted at the first integration point.
 
-**ترتيب مقترح:** State → الحارس → الجلب → **المشرف** → المسارات والحلقة.
+**Suggested order:** State → guardrail → fetch → **supervisor** → edges and loop.
 
 ---
 
-## المسار الثاني — الأدوات وعقد التنفيذ والواجهة
+## Track 2 -- tools, the execution contract, and the UI
 
-| البند | الوصف |
+| Item | Description |
 |---|---|
-| أداة GitHub | `parse_repo_url` + `fetch_repo_data` + `open_issue` |
-| أداة OSV | `check_vulnerabilities` — فحص الثغرات وإرجاع معرّفات GHSA/CVE |
-| أداة فحص المفاتيح | `scan_secrets` — كشف المفاتيح المكشوفة داخل الكود |
-| الـ prompts | تعليمات الوكلاء الثلاثة + التقرير + قواعد اللغة والحواجز |
-| **node وكيل الأمن** | تنفيذ فحص الثغرات والمفاتيح وإضافة النتائج للـ State |
-| **node وكيل البلاغات** | تحليل الـ issues: المكرر (بلغتين)، المهمل، الأولويات |
-| **node وكيل التوثيق** | تقييم الـ README مقابل أربعة معايير: ما المشروع، التثبيت، التشغيل، الترخيص |
-| node التقرير | تجميع النتائج المتراكمة وصياغة التقرير النهائي باللغة المختارة |
-| واجهة Streamlit | الواجهة + مبدل اللغة + أزرار الموافقة والرفض |
-| الاختبارات | happy path + مسارات الفشل + حفظ إثبات التنفيذ |
+| GitHub tool | `parse_repo_url` + `fetch_repo_data` + `open_issue` |
+| OSV tool | `check_vulnerabilities` -- check for vulnerabilities and return GHSA/CVE ids |
+| Secret-scanning tool | `scan_secrets` -- detect exposed keys inside the code |
+| The prompts | Instructions for the three agents and the report, plus language rules and guardrails |
+| **Security agent node** | Run the vulnerability and secret scans and add the findings to the State |
+| **Issues agent node** | Analyse the issues: duplicates (in both languages), stale items, priorities |
+| **Docs agent node** | Grade the README against four criteria: what the project is, installation, usage, licence |
+| Report node | Assemble the accumulated findings and write the final report in the chosen language |
+| Streamlit UI | The interface, the language switch, and the approve/decline buttons |
+| Tests | Happy path + failure paths + saving the execution proof |
 
-**كيف يعمل بلا انتظار:** الأدوات تُختبر بسكربت مباشر يناديها دون الـ graph إطلاقاً، والواجهة تُبنى على backend وهمي صغير يرجع الردود الثابتة المكتوبة في العقد الثالث.
+**How it works without waiting:** the tools are tested with a direct script that
+calls them without the graph at all, and the UI is built against a small fake
+backend returning the fixed responses written in contract 3.
 
-**ترتيب مقترح:** أداة GitHub → أداة OSV → أداة المفاتيح → الـ prompts → الوكلاء الثلاثة → التقرير → الواجهة → الاختبارات.
+**Suggested order:** GitHub tool → OSV tool → secrets tool → prompts → the three
+agents → report → UI → tests.
 
 ---
 
-## العمل المشترك
+## Shared work
 
-| البند | التوقيت |
+| Item | When |
 |---|---|
-| الـ HITL interrupt + الـ backend (FastAPI) | عند نقطة الالتقاء الثانية — ساعة معاً |
-| README الكامل | بعد اكتمال النظام |
-| السلايدات (المعمارية للأول، المنتج والسوق للثاني) | بعد اكتمال النظام |
-| بروفتان كاملتان + تسجيل الديمو الاحتياطي | آخر يومين |
-| التغليف النهائي (zip: كود + README + سلايدات PDF) والإرسال | قبل الموعد بيوم |
+| The HITL interrupt and the backend (FastAPI) | At the second integration point -- an hour together |
+| The full README | Once the system is complete |
+| The slides (architecture for track 1, product and market for track 2) | Once the system is complete |
+| Two full rehearsals + recording a backup demo | The last two days |
+| Final packaging (zip: code + README + slides as PDF) and sending | The day before the deadline |
 
 ---
 
-## نقاط الالتقاء (ثلاث فقط)
+## Integration points (only three)
 
-1. **الاتفاق على العقود** — قبل أي كود
-2. **الربط الأول:** حذف الـ stubs، ربط الأدوات الحقيقية بالـ graph، وبناء الـ backend والـ interrupt معاً
-3. **الربط الثاني:** توجيه الواجهة للـ backend الحقيقي وتجربة التدفق كاملاً من البداية للنهاية
+1. **Agreeing the contracts** -- before any code
+2. **First integration:** delete the stubs, wire the real tools into the graph,
+   and build the backend and the interrupt together
+3. **Second integration:** point the UI at the real backend and run the whole
+   flow end to end
 
 ---
 
-## قواعد ثابتة
+## Standing rules
 
-- **لا يُعدّل الطرفان الملف نفسه** — التقسيمة مبنية على فصل الملفات لتفادي التعارضات
-- **أي تغيير على العقود = إبلاغ فوري للطرف الآخر** — تغيير شكل مخرجات دالة بصمت هو السبب الأول لتعطل الفرق
-- **الـ stubs والـ backend الوهمي أدوات تطوير فقط** — تُحذف بالكامل قبل التسليم، فالبريف يمنع أي أداة ترجع بيانات معلّبة
-- **ابدأ بالأصعب في مسارك:** المشرف / أداة GitHub — المفاجآت تظهر من الأصعب، والأفضل أن تظهر مبكراً
-- **تحديث يومي بجملتين:** أنجزت كذا، أعمل الآن على كذا، أحتاج منك كذا
+- **Neither side edits the same file** -- the split is built on file separation
+  to avoid conflicts
+- **Any change to the contracts means telling the other side immediately** --
+  silently changing the shape of a function's output is the number one cause of
+  teams breaking each other's work
+- **The stubs and the fake backend are development aids only** -- deleted
+  entirely before submission, since the brief forbids any tool that returns
+  canned data
+- **Start with the hardest thing in your track:** the supervisor / the GitHub
+  tool -- surprises come from the hardest part, and it is better they surface early
+- **A two-sentence daily update:** what I finished, what I am on now, what I need
+  from you

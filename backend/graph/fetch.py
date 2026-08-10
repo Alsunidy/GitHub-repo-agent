@@ -1,20 +1,22 @@
-"""node الجلب — يملأ repo_data مرة واحدة، ويغطّي مسار الفشل الذي يطلبه البريف.
+"""Fetch node -- fills repo_data once, and covers the failure path the brief asks for.
 
-مساران للفشل هنا:
-  1. RepoNotFound — المستودع غير موجود أو خاص (خطأ متوقَّع، رسالة مؤدبة).
-  2. أي استثناء آخر — شبكة، حد استعلامات، رد غير متوقَّع. لا نُسقط النظام
-     ولا نخترع بيانات: نوقف المسار ونشرح للمستخدم.
+Three ways this fails:
+  1. RepoNotFound -- the repo is missing or private (expected, polite message).
+  2. Any other exception -- network, rate limit, unexpected response. We neither
+     crash nor invent data: the run stops and the user is told what happened.
+  3. Success returning nothing -- a repo with no readable content at all.
 """
 
-# ── مؤقت: يُحذف عند نقطة الالتقاء الأولى (انظر backend/stubs.py) ──
+# -- temporary: delete at the first integration point (see backend/stubs.py) --
 try:
     from backend.tools.github_tools import RepoNotFound, fetch_repo_data
 except ImportError:  # pragma: no cover
     from backend.stubs import RepoNotFound, fetch_repo_data
-# ──────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 from backend.state import AgentState
 
+# User-facing text stays bilingual -- see the note in guardrail.py.
 _MESSAGES = {
     "not_found": {
         "en": "I could not reach `{full_name}`. The repository does not exist, "
@@ -31,7 +33,7 @@ _MESSAGES = {
               "وليست ملاحظة على المستودع. حاول مرة أخرى بعد قليل.",
     },
     "empty": {
-        "en": "`{full_name}` exists but returned no readable content — no README, "
+        "en": "`{full_name}` exists but returned no readable content -- no README, "
               "no dependency files, and no source files I can inspect. There is "
               "nothing for me to analyse.",
         "ar": "`{full_name}` موجود لكنه لم يُرجع أي محتوى قابل للقراءة — لا README، "
@@ -41,7 +43,7 @@ _MESSAGES = {
 
 
 def fetch_node(state: AgentState) -> dict:
-    """يستدعي أداة GitHub الحقيقية ويضع النتيجة في الـ State."""
+    """Call the real GitHub tool and put the result in the state."""
     owner, repo = state["owner"], state["repo"]
     language = state.get("language", "en")
     full_name = f"{owner}/{repo}"
@@ -50,7 +52,7 @@ def fetch_node(state: AgentState) -> dict:
         repo_data = fetch_repo_data(owner, repo)
     except RepoNotFound:
         return _fail("not_found", language, full_name=full_name)
-    except Exception as exc:  # noqa: BLE001 — أي عطل في الأداة يُترجم لرسالة مفهومة
+    except Exception as exc:  # noqa: BLE001 -- any tool fault becomes a readable message
         return _fail("tool_error", language, error=f"{type(exc).__name__}: {exc}")
 
     if not _has_analysable_content(repo_data):
@@ -71,7 +73,7 @@ def fetch_node(state: AgentState) -> dict:
 
 
 def _has_analysable_content(repo_data: dict) -> bool:
-    """الأداة قد تنجح وترجع لا شيء — هذه أيضاً حالة فشل يجب التعامل معها."""
+    """A tool can succeed and still return nothing -- that is a failure too."""
     if not repo_data:
         return False
     return any(
@@ -95,5 +97,5 @@ def _fail(reason_key: str, language: str, **fmt) -> dict:
 
 
 def route_after_fetch(state: AgentState) -> str:
-    """المسار الشرطي الثاني: فشل الجلب يوقف كل شيء، والنجاح يسلّم للمشرف."""
+    """Conditional edge 2: a fetch failure ends the run before any agent starts."""
     return "failed" if state.get("rejection_reason") else "supervisor"

@@ -1,25 +1,29 @@
-"""node الحارس — البوابة الأولى: لا شيء يمر بلا رابط مستودع GitHub صالح.
+"""Guardrail node -- the first gate: nothing passes without a valid repo URL.
 
-يمنع ثلاث حالات: المدخل الفارغ، وما ليس رابطاً أصلاً، والرابط الذي يشير
-إلى GitHub لكنه ليس مستودعاً (ملف شخصي، بحث، صفحة إعدادات...).
+It blocks three cases: empty input, input that is not a URL at all, and URLs
+that point at github.com but not at a repository (a profile, a search page,
+a settings page).
 """
 
-# ── مؤقت: يُحذف عند نقطة الالتقاء الأولى (انظر backend/stubs.py) ──
+# -- temporary: delete at the first integration point (see backend/stubs.py) --
 try:
     from backend.tools.github_tools import parse_repo_url
 except ImportError:  # pragma: no cover
     from backend.stubs import parse_repo_url
-# ──────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 from backend.state import AgentState
 
-# مسارات على github.com ليست مستودعات — تُرفض ولو طابقت شكل owner/repo
+# Paths on github.com that are not repositories. Rejected even when they
+# happen to match the owner/repo shape.
 _RESERVED_OWNERS = {
     "settings", "notifications", "explore", "marketplace", "pricing",
     "search", "login", "join", "about", "features", "sponsors",
     "orgs", "topics", "trending", "collections", "events", "new",
 }
 
+# User-facing text stays bilingual: the report language is a product feature
+# and part of the agreed contract (state field `language`).
 _MESSAGES = {
     "empty": {
         "en": "Please enter a GitHub repository URL, for example: "
@@ -39,7 +43,7 @@ _MESSAGES = {
 
 
 def guardrail_node(state: AgentState) -> dict:
-    """يملأ owner/repo، أو يملأ rejection_reason ويوقف المسار بأدب."""
+    """Fill owner/repo, or fill rejection_reason and stop the run politely."""
     language = state.get("language", "en")
     raw_url = (state.get("repo_url") or "").strip()
 
@@ -75,5 +79,5 @@ def _reject(reason_key: str, language: str) -> dict:
 
 
 def route_after_guardrail(state: AgentState) -> str:
-    """المسار الشرطي الأول: رفض مؤدب، أو المضي إلى الجلب."""
+    """Conditional edge 1: polite rejection, or carry on to the fetch."""
     return "rejected" if state.get("rejection_reason") else "fetch"
