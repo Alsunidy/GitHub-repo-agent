@@ -261,6 +261,20 @@ def _stale_finding(stale_issues: list[dict], language: str) -> FindingItem:
     return FindingItem(severity="low", title=title, detail=detail, evidence=numbers)
 
 
+def _real_issue_numbers(numbers: list[int], valid_numbers: set[int]) -> list[int]:
+    """Evidence must come from the actual input, never the model's memory:
+    drop any issue number the LLM mentioned that isn't one of this
+    repository's real open issues, and de-duplicate. Guards against the LLM
+    attaching a stray or hallucinated number to the wrong finding."""
+    seen = set()
+    result = []
+    for n in numbers:
+        if n in valid_numbers and n not in seen:
+            seen.add(n)
+            result.append(n)
+    return result
+
+
 def issues_agent(state: AgentState) -> dict:
     """Splits deterministically-answerable staleness (dates, comment counts,
     computed in code) from what genuinely needs language understanding
@@ -269,6 +283,7 @@ def issues_agent(state: AgentState) -> dict:
     language = state.get("language", "en")
     repo_data = state.get("repo_data", {}) or {}
     open_issues = repo_data.get("open_issues", []) or []
+    valid_numbers = {issue["number"] for issue in open_issues if "number" in issue}
 
     finding_items = []
 
@@ -283,25 +298,28 @@ def issues_agent(state: AgentState) -> dict:
 
     if analysis:
         for group in analysis.duplicate_groups:
-            if len(group.issue_numbers) < 2:
-                continue  # not actually a duplicate — guard against a stray LLM slip
+            numbers = _real_issue_numbers(group.issue_numbers, valid_numbers)
+            if len(numbers) < 2:
+                continue  # not actually a duplicate once fabricated numbers are dropped
             finding_items.append(
                 FindingItem(
                     severity="medium",
                     title=group.title,
                     detail=group.detail,
-                    evidence=[f"#{n}" for n in group.issue_numbers],
+                    evidence=[f"#{n}" for n in numbers],
                 )
             )
-        if analysis.priority and analysis.priority.issue_numbers:
-            finding_items.append(
-                FindingItem(
-                    severity="medium",
-                    title=analysis.priority.title,
-                    detail=analysis.priority.detail,
-                    evidence=[f"#{n}" for n in analysis.priority.issue_numbers[:3]],
+        if analysis.priority:
+            numbers = _real_issue_numbers(analysis.priority.issue_numbers, valid_numbers)[:3]
+            if numbers:
+                finding_items.append(
+                    FindingItem(
+                        severity="medium",
+                        title=analysis.priority.title,
+                        detail=analysis.priority.detail,
+                        evidence=[f"#{n}" for n in numbers],
+                    )
                 )
-            )
 
     if not finding_items:
         finding_items = [_no_issues_findings_item(language)]

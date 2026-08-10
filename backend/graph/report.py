@@ -30,6 +30,7 @@ _LABELS = {
         "by_area": "Findings by Area",
         "recommendations": "Recommendations",
         "evidence": "Evidence",
+        "see_top_issues": '— see "Top Issues" above.',
         "agents": {"security": "Security", "issues": "Issues", "docs": "Documentation"},
     },
     "ar": {
@@ -41,6 +42,7 @@ _LABELS = {
         "by_area": "التفاصيل حسب المجال",
         "recommendations": "التوصيات",
         "evidence": "الدليل",
+        "see_top_issues": "— انظر «أخطر المشاكل» أعلاه.",
         "agents": {"security": "الأمان", "issues": "البلاغات", "docs": "التوثيق"},
     },
 }
@@ -177,6 +179,12 @@ def _render_report(
         lines.append(labels["healthy_line"])
     lines.append("")
 
+    # Findings already shown in "Top Issues" get a one-line pointer here
+    # instead of repeating title/detail/evidence verbatim. Same dict objects
+    # as in top_issues (both built from sorted_findings), so identity is a
+    # reliable way to detect "already shown".
+    top_issue_ids = {id(f) for f in top_issues}
+
     lines.append(f"## {labels['by_area']}")
     lines.append("")
     for agent in _AGENT_ORDER:
@@ -187,7 +195,8 @@ def _render_report(
             continue
         lines.append(f"### {labels['agents'][agent]}")
         for finding in agent_findings:
-            lines.append(f"- {_render_finding_line(finding, labels)}")
+            already_shown = id(finding) in top_issue_ids
+            lines.append(f"- {_render_finding_line(finding, labels, condensed=already_shown)}")
         lines.append("")
 
     lines.append(f"## {labels['recommendations']}")
@@ -197,9 +206,10 @@ def _render_report(
     return "\n".join(lines).strip() + "\n"
 
 
-def _render_finding_line(finding: dict, labels: dict) -> str:
+def _render_finding_line(finding: dict, labels: dict, condensed: bool = False) -> str:
+    title_part = f"**[{finding.get('severity')}] {finding.get('title')}**"
+    if condensed:
+        return f"{title_part} {labels['see_top_issues']}"
+
     evidence = ", ".join(finding.get("evidence", [])) or "—"
-    return (
-        f"**[{finding.get('severity')}] {finding.get('title')}** — {finding.get('detail')} "
-        f"({labels['evidence']}: {evidence})"
-    )
+    return f"{title_part} — {finding.get('detail')} ({labels['evidence']}: {evidence})"

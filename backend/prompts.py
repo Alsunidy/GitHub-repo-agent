@@ -78,6 +78,10 @@ _ISSUES_ROLE = (
     "  • Priority: rank the top 3 open issues that most deserve attention "
     "next, based on the impact implied by their title/body (most "
     "important first). If fewer than 3 issues exist, rank all of them.\n"
+    "Every issue number you output MUST be copied exactly from the numbers "
+    "given to you below — never invent one, never reuse a number from a "
+    "different repository or a previous request, and never attach a number "
+    "to the wrong group.\n"
     "Do not report an issue as a finding just for existing — only a "
     "genuine duplicate group or the priority ranking are findings."
 )
