@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.13 (RAG_Project)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (RAG_Project)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (GitHub-repo-agent)" project-jdk-type="Python SDK" />
 </project>

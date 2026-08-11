@@ -134,7 +134,9 @@ _REPORT_ROLE = (
     "direct response to one of them. Put exactly ONE step in each list "
     "entry, and do not write your own numbers or bullet characters: the "
     "report numbers them for you, and a step that arrives pre-numbered ends "
-    "up numbered twice."
+    "up numbered twice. If the prompt names packages that already have an "
+    "exact upgrade instruction, do not write a version recommendation for "
+    "those yourself — cover only what is left."
 )
 
 

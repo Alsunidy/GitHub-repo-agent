@@ -31,6 +31,7 @@ _LABELS = {
         "by_area": "Findings by Area",
         "recommendations": "Recommendations",
         "evidence": "Evidence",
+        "see_top_issues": '— see "Top Issues" above.',
         "agents": {"security": "Security", "issues": "Issues", "docs": "Documentation"},
     },
     "ar": {
@@ -42,6 +43,7 @@ _LABELS = {
         "by_area": "التفاصيل حسب المجال",
         "recommendations": "التوصيات",
         "evidence": "الدليل",
+        "see_top_issues": "— انظر «أخطر المشاكل» أعلاه.",
         "agents": {"security": "الأمان", "issues": "البلاغات", "docs": "التوثيق"},
     },
 }
@@ -83,14 +85,30 @@ def report_node(state: AgentState) -> dict:
     top_issues = actionable[:3]
 
     if actionable:
+        # Exact upgrade targets come straight from OSV.dev (see
+        # backend/tools/osv_tools.py), never from the model's memory of what
+        # version fixed what.
+        upgrade_recommendations = _deterministic_upgrade_recommendations(actionable, language)
+        covered_packages = sorted({f["package"] for f in actionable if f.get("fixed_version")})
+
         try:
-            text = _ask_llm_report(language, sorted_findings, agents_done)
+            text = _ask_llm_report(language, sorted_findings, agents_done, covered_packages)
         except Exception:  # noqa: BLE001 — no key, network, bad output: fall back, don't crash the graph
             text = _deterministic_report_text(actionable, language)
+        cleaned = _clean_recommendations(text.recommendations)
         # An empty (or all-blank) list would leave the section headed and
         # empty — fall back rather than print a heading over nothing.
-        if not _clean_recommendations(text.recommendations):
-            text.recommendations = _deterministic_report_text(actionable, language).recommendations
+        if not cleaned:
+            cleaned = _clean_recommendations(_deterministic_report_text(actionable, language).recommendations)
+        # Precise, code-built upgrade lines first; then whatever the model
+        # (or the fallback) added for findings that have no exact version --
+        # skip anything that just repeats a package already covered above.
+        # Case-insensitive: the model writes package names as normal prose
+        # ("Flask", "PyYAML"), not as the lowercase requirements.txt name.
+        covered_lower = [pkg.lower() for pkg in covered_packages]
+        text.recommendations = upgrade_recommendations + [
+            r for r in cleaned if not any(pkg in r.lower() for pkg in covered_lower)
+        ]
     else:
         # Nothing actionable: never call the LLM — a healthy repo must
         # never risk a fabricated problem.
@@ -105,12 +123,22 @@ def report_node(state: AgentState) -> dict:
     }
 
 
-def _ask_llm_report(language: str, sorted_findings: list[dict], agents_done: list[str]) -> ReportText:
+def _ask_llm_report(
+    language: str, sorted_findings: list[dict], agents_done: list[str], covered_packages: list[str]
+) -> ReportText:
     llm = get_llm(temperature=0).with_structured_output(ReportText)
+    covered_note = (
+        f"These packages already have an exact upgrade instruction added "
+        f"separately — do not write a version recommendation for them "
+        f"yourself: {covered_packages}\n\n"
+        if covered_packages
+        else ""
+    )
     prompt = (
         f"Agents that ran: {agents_done}\n\n"
         "All findings, already sorted most severe first:\n"
         f"{json.dumps(sorted_findings, ensure_ascii=False, indent=2)}\n\n"
+        f"{covered_note}"
         "Write the executive summary and recommendations only."
     )
     return llm.invoke(
@@ -119,6 +147,32 @@ def _ask_llm_report(language: str, sorted_findings: list[dict], agents_done: lis
             {"role": "user", "content": prompt},
         ]
     )
+
+
+def _deterministic_upgrade_recommendations(findings: list[dict], language: str) -> list[str]:
+    """One precise line per vulnerable package with a known fix, built
+    straight from OSV.dev data (backend/tools/osv_tools.py) -- the exact
+    version numbers are never left to the LLM to recall or guess."""
+    seen_packages = set()
+    lines = []
+    for finding in findings:
+        package = finding.get("package")
+        fixed_version = finding.get("fixed_version")
+        if not package or not fixed_version or package in seen_packages:
+            continue
+        seen_packages.add(package)
+        lines.append(_upgrade_line(package, finding.get("current_version"), fixed_version, language))
+    return lines
+
+
+def _upgrade_line(package: str, current_version: str | None, fixed_version: str, language: str) -> str:
+    if language == "ar":
+        if current_version:
+            return f"حدّث {package} من {current_version} إلى {fixed_version} أو أحدث."
+        return f"حدّث {package} إلى {fixed_version} أو أحدث."
+    if current_version:
+        return f"Update {package} from {current_version} to {fixed_version} or newer."
+    return f"Update {package} to {fixed_version} or newer."
 
 
 def _deterministic_report_text(actionable: list[dict], language: str) -> ReportText:
@@ -189,6 +243,12 @@ def _render_report(
         lines.append(labels["healthy_line"])
     lines.append("")
 
+    # Findings already shown in "Top Issues" get a one-line pointer here
+    # instead of repeating title/detail/evidence verbatim. Same dict objects
+    # as in top_issues (both built from sorted_findings), so identity is a
+    # reliable way to detect "already shown".
+    top_issue_ids = {id(f) for f in top_issues}
+
     lines.append(f"## {labels['by_area']}")
     lines.append("")
     for agent in _AGENT_ORDER:
@@ -199,7 +259,8 @@ def _render_report(
             continue
         lines.append(f"### {labels['agents'][agent]}")
         for finding in agent_findings:
-            lines.append(f"- {_render_finding_line(finding, labels)}")
+            already_shown = id(finding) in top_issue_ids
+            lines.append(f"- {_render_finding_line(finding, labels, condensed=already_shown)}")
         lines.append("")
 
     lines.append(f"## {labels['recommendations']}")
@@ -226,9 +287,10 @@ def _clean_recommendations(recommendations: list[str]) -> list[str]:
     return cleaned
 
 
-def _render_finding_line(finding: dict, labels: dict) -> str:
+def _render_finding_line(finding: dict, labels: dict, condensed: bool = False) -> str:
+    title_part = f"**[{finding.get('severity')}] {finding.get('title')}**"
+    if condensed:
+        return f"{title_part} {labels['see_top_issues']}"
+
     evidence = ", ".join(finding.get("evidence", [])) or "—"
-    return (
-        f"**[{finding.get('severity')}] {finding.get('title')}** — {finding.get('detail')} "
-        f"({labels['evidence']}: {evidence})"
-    )
+    return f"{title_part} — {finding.get('detail')} ({labels['evidence']}: {evidence})"

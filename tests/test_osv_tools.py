@@ -62,7 +62,73 @@ def test_check_vulnerabilities_one_package_failing_does_not_block_the_others():
         "vuln_ids": [],
         "total_count": 0,
         "summary": "no known vulnerabilities",
+        "fixed_version": None,
     }
+
+
+def _vuln(vuln_id: str, ranges: list[dict]) -> dict:
+    return {"id": vuln_id, "summary": f"summary for {vuln_id}", "affected": [{"ranges": ranges}]}
+
+
+def _ecosystem_range(*fixed_versions: str) -> dict:
+    """An ECOSYSTEM range with one "fixed" event per version given, in
+    order — mirrors OSV's real shape (events are chronological)."""
+    return {"type": "ECOSYSTEM", "events": [{"introduced": "0"}] + [{"fixed": v} for v in fixed_versions]}
+
+
+def test_check_vulnerabilities_ignores_git_commit_hashes_in_fixed_version():
+    # Real OSV responses report the same fix twice: once as a GIT range
+    # (commit hash) and once as an ECOSYSTEM range (package version). Mixing
+    # them previously let a commit hash like "eb31d8453..." win a max()
+    # comparison against real version numbers -- only ECOSYSTEM must count.
+    vulns = [
+        _vuln(
+            "GHSA-1",
+            [
+                {"type": "GIT", "events": [{"introduced": "0"}, {"fixed": "eb31d845323618d688ad429479c6dda973056136"}]},
+                _ecosystem_range("2.2.1"),
+            ],
+        )
+    ]
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = {"vulns": vulns}
+
+    with patch("backend.tools.osv_tools.requests.post", return_value=fake_response):
+        result = check_vulnerabilities("django==2.2.0\n")[0]
+
+    assert result["fixed_version"] == "2.2.1"
+
+
+def test_check_vulnerabilities_fixed_version_is_the_highest_across_all_vulns():
+    # Three separate vulnerabilities, three different fix versions -- the
+    # package needs the highest one to clear all of them at once, and "1.9"
+    # vs "1.10" must compare numerically, not as text.
+    vulns = [
+        _vuln("GHSA-1", [_ecosystem_range("1.9")]),
+        _vuln("GHSA-2", [_ecosystem_range("1.10")]),
+        _vuln("GHSA-3", [_ecosystem_range("1.2")]),
+    ]
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = {"vulns": vulns}
+
+    with patch("backend.tools.osv_tools.requests.post", return_value=fake_response):
+        result = check_vulnerabilities("somepkg==1.0\n")[0]
+
+    assert result["fixed_version"] == "1.10"
+
+
+def test_check_vulnerabilities_fixed_version_none_without_ecosystem_fix_data():
+    vulns = [_vuln("GHSA-1", [{"type": "GIT", "events": [{"fixed": "deadbeef"}]}])]
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = {"vulns": vulns}
+
+    with patch("backend.tools.osv_tools.requests.post", return_value=fake_response):
+        result = check_vulnerabilities("somepkg==1.0\n")[0]
+
+    assert result["fixed_version"] is None
 
 
 def test_check_vulnerabilities_caps_vuln_ids_and_reports_total_count():
