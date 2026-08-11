@@ -85,14 +85,30 @@ def report_node(state: AgentState) -> dict:
     top_issues = actionable[:3]
 
     if actionable:
+        # Exact upgrade targets come straight from OSV.dev (see
+        # backend/tools/osv_tools.py), never from the model's memory of what
+        # version fixed what.
+        upgrade_recommendations = _deterministic_upgrade_recommendations(actionable, language)
+        covered_packages = sorted({f["package"] for f in actionable if f.get("fixed_version")})
+
         try:
-            text = _ask_llm_report(language, sorted_findings, agents_done)
+            text = _ask_llm_report(language, sorted_findings, agents_done, covered_packages)
         except Exception:  # noqa: BLE001 — no key, network, bad output: fall back, don't crash the graph
             text = _deterministic_report_text(actionable, language)
+        cleaned = _clean_recommendations(text.recommendations)
         # An empty (or all-blank) list would leave the section headed and
         # empty — fall back rather than print a heading over nothing.
-        if not _clean_recommendations(text.recommendations):
-            text.recommendations = _deterministic_report_text(actionable, language).recommendations
+        if not cleaned:
+            cleaned = _clean_recommendations(_deterministic_report_text(actionable, language).recommendations)
+        # Precise, code-built upgrade lines first; then whatever the model
+        # (or the fallback) added for findings that have no exact version --
+        # skip anything that just repeats a package already covered above.
+        # Case-insensitive: the model writes package names as normal prose
+        # ("Flask", "PyYAML"), not as the lowercase requirements.txt name.
+        covered_lower = [pkg.lower() for pkg in covered_packages]
+        text.recommendations = upgrade_recommendations + [
+            r for r in cleaned if not any(pkg in r.lower() for pkg in covered_lower)
+        ]
     else:
         # Nothing actionable: never call the LLM — a healthy repo must
         # never risk a fabricated problem.
@@ -107,12 +123,22 @@ def report_node(state: AgentState) -> dict:
     }
 
 
-def _ask_llm_report(language: str, sorted_findings: list[dict], agents_done: list[str]) -> ReportText:
+def _ask_llm_report(
+    language: str, sorted_findings: list[dict], agents_done: list[str], covered_packages: list[str]
+) -> ReportText:
     llm = get_llm(temperature=0).with_structured_output(ReportText)
+    covered_note = (
+        f"These packages already have an exact upgrade instruction added "
+        f"separately — do not write a version recommendation for them "
+        f"yourself: {covered_packages}\n\n"
+        if covered_packages
+        else ""
+    )
     prompt = (
         f"Agents that ran: {agents_done}\n\n"
         "All findings, already sorted most severe first:\n"
         f"{json.dumps(sorted_findings, ensure_ascii=False, indent=2)}\n\n"
+        f"{covered_note}"
         "Write the executive summary and recommendations only."
     )
     return llm.invoke(
@@ -121,6 +147,32 @@ def _ask_llm_report(language: str, sorted_findings: list[dict], agents_done: lis
             {"role": "user", "content": prompt},
         ]
     )
+
+
+def _deterministic_upgrade_recommendations(findings: list[dict], language: str) -> list[str]:
+    """One precise line per vulnerable package with a known fix, built
+    straight from OSV.dev data (backend/tools/osv_tools.py) -- the exact
+    version numbers are never left to the LLM to recall or guess."""
+    seen_packages = set()
+    lines = []
+    for finding in findings:
+        package = finding.get("package")
+        fixed_version = finding.get("fixed_version")
+        if not package or not fixed_version or package in seen_packages:
+            continue
+        seen_packages.add(package)
+        lines.append(_upgrade_line(package, finding.get("current_version"), fixed_version, language))
+    return lines
+
+
+def _upgrade_line(package: str, current_version: str | None, fixed_version: str, language: str) -> str:
+    if language == "ar":
+        if current_version:
+            return f"حدّث {package} من {current_version} إلى {fixed_version} أو أحدث."
+        return f"حدّث {package} إلى {fixed_version} أو أحدث."
+    if current_version:
+        return f"Update {package} from {current_version} to {fixed_version} or newer."
+    return f"Update {package} to {fixed_version} or newer."
 
 
 def _deterministic_report_text(actionable: list[dict], language: str) -> ReportText:

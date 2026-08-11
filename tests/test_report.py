@@ -25,14 +25,16 @@ def _never_call_llm():
     return _boom
 
 
-def _finding(agent, severity, title, evidence=None):
-    return {
+def _finding(agent, severity, title, evidence=None, **extra):
+    finding = {
         "agent": agent,
         "severity": severity,
         "title": title,
         "detail": f"detail for {title}",
         "evidence": evidence or [],
     }
+    finding.update(extra)
+    return finding
 
 
 def _state(findings, agents_done, **overrides):
@@ -182,6 +184,124 @@ def test_report_node_falls_back_when_the_model_returns_no_recommendations(monkey
     section = report_node(state)["report"].split("## Recommendations")[1].strip()
 
     assert section == "1. Review the findings below and address the most severe ones first."
+
+
+def test_report_node_writes_exact_upgrade_recommendation_in_english(monkeypatch):
+    findings = [
+        _finding(
+            "security", "high", "Flask DoS vulnerability",
+            evidence=["GHSA-xxxx"], package="flask", current_version="0.12.2", fixed_version="3.1.3",
+        )
+    ]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(
+        return_value=ReportText(executive_summary="Summary.", recommendations=["Rotate any leaked secrets."])
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section.splitlines() == [
+        "1. Update flask from 0.12.2 to 3.1.3 or newer.",
+        "2. Rotate any leaked secrets.",
+    ]
+
+
+def test_report_node_writes_exact_upgrade_recommendation_in_arabic(monkeypatch):
+    findings = [
+        _finding(
+            "security", "high", "ثغرة في Flask",
+            evidence=["GHSA-xxxx"], package="flask", current_version="0.12.2", fixed_version="3.1.3",
+        )
+    ]
+    state = _state(findings, ["security"], language="ar")
+    fake = _fake_llm(
+        return_value=ReportText(executive_summary="ملخص.", recommendations=["راجع سجل الأمان دورياً."])
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## التوصيات")[1].strip()
+
+    assert section.splitlines() == [
+        "1. حدّث flask من 0.12.2 إلى 3.1.3 أو أحدث.",
+        "2. راجع سجل الأمان دورياً.",
+    ]
+
+
+def test_report_node_upgrade_recommendation_survives_llm_failure(monkeypatch):
+    findings = [
+        _finding(
+            "security", "high", "Flask DoS vulnerability",
+            evidence=["GHSA-xxxx"], package="flask", current_version="0.12.2", fixed_version="3.1.3",
+        )
+    ]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(raise_exc=RuntimeError("no API key"))
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section.splitlines()[0] == "1. Update flask from 0.12.2 to 3.1.3 or newer."
+
+
+def test_report_node_drops_llm_recommendation_that_repeats_a_covered_package(monkeypatch):
+    # The model is told which packages already have an exact instruction; if
+    # it names one anyway (ignoring that note), the line must not survive --
+    # two conflicting version claims for the same package would be worse
+    # than one correct one.
+    findings = [
+        _finding(
+            "security", "high", "Flask DoS vulnerability",
+            evidence=["GHSA-xxxx"], package="flask", current_version="0.12.2", fixed_version="3.1.3",
+        )
+    ]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(
+        return_value=ReportText(
+            executive_summary="Summary.",
+            recommendations=["Upgrade flask to the latest release as soon as possible."],
+        )
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section == "1. Update flask from 0.12.2 to 3.1.3 or newer."
+
+
+def test_report_node_drops_covered_package_regardless_of_case(monkeypatch):
+    # The model writes package names as normal prose ("Flask", "PyYAML"),
+    # not as the lowercase name requirements.txt uses -- the dedup check
+    # must not be case-sensitive, or a capitalized duplicate slips through.
+    findings = [
+        _finding(
+            "security", "high", "Flask DoS vulnerability",
+            evidence=["GHSA-xxxx"], package="flask", current_version="0.12.2", fixed_version="3.1.3",
+        )
+    ]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(
+        return_value=ReportText(
+            executive_summary="Summary.",
+            recommendations=["Update the Flask package to the latest release."],
+        )
+    )
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section == "1. Update flask from 0.12.2 to 3.1.3 or newer."
+
+
+def test_report_node_no_upgrade_line_without_fixed_version(monkeypatch):
+    findings = [_finding("security", "critical", "Exposed secret", package=None, fixed_version=None)]
+    state = _state(findings, ["security"])
+    fake = _fake_llm(return_value=ReportText(executive_summary="Summary.", recommendations=["Rotate the key."]))
+    monkeypatch.setattr("backend.graph.report.get_llm", lambda *a, **k: fake)
+
+    section = report_node(state)["report"].split("## Recommendations")[1].strip()
+
+    assert section == "1. Rotate the key."
 
 
 def test_report_node_skips_sections_for_agents_that_never_ran():

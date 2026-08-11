@@ -126,6 +126,59 @@ def test_security_agent_reports_none_when_nothing_found_and_never_calls_llm(monk
     assert result["findings"][0]["severity"] == "none"
 
 
+def test_security_agent_attaches_fixed_version_to_vulnerability_findings(monkeypatch):
+    # report_node needs package/current_version/fixed_version to write an
+    # exact upgrade line -- these are additive on top of the base finding
+    # shape, so a plain secret finding (tested above) must not gain them.
+    state = _state(_base_repo_data(dependency_files={"requirements.txt": "flask==0.12.2\n"}))
+
+    monkeypatch.setattr(
+        "backend.graph.agents.check_vulnerabilities",
+        lambda requirements_text, **k: [
+            {
+                "package": "flask",
+                "version": "0.12.2",
+                "vuln_ids": ["GHSA-xxxx"],
+                "total_count": 1,
+                "summary": "Denial of service",
+                "fixed_version": "3.1.3",
+            }
+        ],
+    )
+    fake = _fake_llm(
+        return_value=TitleDetailBatch(
+            items=[TitleDetail(title="Flask DoS", detail="A DoS vulnerability was found.")]
+        )
+    )
+    monkeypatch.setattr("backend.graph.agents.get_llm", lambda *a, **k: fake)
+
+    result = security_agent(state)
+
+    finding = result["findings"][0]
+    assert finding["package"] == "flask"
+    assert finding["current_version"] == "0.12.2"
+    assert finding["fixed_version"] == "3.1.3"
+    # still the full base shape, just with additive extra keys
+    assert _FINDING_KEYS <= set(finding)
+
+
+def test_security_agent_secret_findings_never_carry_version_fields(monkeypatch):
+    code_files = {"config.py": 'TOKEN = "ghp_0123456789abcdefghijklmnopqrstuvwxyz"\n'}
+    state = _state(_base_repo_data(code_files=code_files))
+    monkeypatch.setattr("backend.graph.agents.get_llm", _never_call_llm())
+    fake = _fake_llm(
+        return_value=TitleDetailBatch(
+            items=[TitleDetail(title="Exposed token", detail="A token was hard-coded.")]
+        )
+    )
+    monkeypatch.setattr("backend.graph.agents.get_llm", lambda *a, **k: fake)
+
+    result = security_agent(state)
+
+    # a secret finding has no package/version data at all -- exact shape
+    assert set(result["findings"][0]) == _FINDING_KEYS
+
+
 # ----------------------------------------------------------------- issues_agent
 
 

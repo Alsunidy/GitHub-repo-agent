@@ -48,14 +48,21 @@ class TitleDetailBatch(BaseModel):
     )
 
 
-def _finding(agent: str, item: FindingItem) -> dict:
-    return {
+def _finding(agent: str, item: FindingItem, **extra) -> dict:
+    """`extra` is additive, optional, per-finding data beyond the base
+    {agent, severity, title, detail, evidence} contract shape (e.g. the
+    package/current_version/fixed_version a vulnerability finding carries,
+    used by report_node to build an exact upgrade recommendation). None
+    values are dropped so findings without that data keep the base shape."""
+    finding = {
         "agent": agent,
         "severity": item.severity,
         "title": item.title,
         "detail": item.detail,
         "evidence": item.evidence,
     }
+    finding.update({k: v for k, v in extra.items() if v is not None})
+    return finding
 
 
 def _raw_items(vuln_results: list[dict], secret_results: list[dict]) -> list[dict]:
@@ -74,6 +81,7 @@ def _raw_items(vuln_results: list[dict], secret_results: list[dict]) -> list[dic
                 "package": vuln["package"],
                 "version": vuln["version"],
                 "summary": vuln.get("summary", ""),
+                "fixed_version": vuln.get("fixed_version"),
             }
         )
     for secret in secret_results:
@@ -108,21 +116,30 @@ def security_agent(state: AgentState) -> dict:
     raw_items = _raw_items(vuln_results, secret_results)
 
     if not raw_items:
-        finding_items = [_no_findings_item(language)]
+        findings = [_finding("security", _no_findings_item(language))]
     else:
         texts = _titles_for(raw_items, language)
-        finding_items = [
-            FindingItem(
-                severity=item["severity"],
-                title=text.title,
-                detail=text.detail,
-                evidence=item["evidence"],
+        findings = [
+            _finding(
+                "security",
+                FindingItem(
+                    severity=raw["severity"],
+                    title=text.title,
+                    detail=text.detail,
+                    evidence=raw["evidence"],
+                ),
+                # Additive, vulnerability findings only: the exact upgrade
+                # target report_node needs to write a precise recommendation
+                # instead of asking the LLM to recall a version number.
+                package=raw.get("package") if raw["kind"] == "vulnerability" else None,
+                current_version=raw.get("version") if raw["kind"] == "vulnerability" else None,
+                fixed_version=raw.get("fixed_version") if raw["kind"] == "vulnerability" else None,
             )
-            for item, text in zip(raw_items, texts)
+            for raw, text in zip(raw_items, texts)
         ]
 
     return {
-        "findings": [_finding("security", item) for item in finding_items],
+        "findings": findings,
         "agents_done": ["security"],
     }
 
