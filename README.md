@@ -329,21 +329,21 @@ Interactive docs while the backend is running: <http://localhost:8000/docs>.
 python -m pytest tests/ -v
 ```
 
-48 tests, and they run **with no API keys and no network** — every external call
+61 tests, and they run **with no API keys and no network** — every external call
 (`requests.get/post`, `get_llm`) is mocked at the module boundary. Each agent is
 tested twice: once with the model answering, once with it raising, to prove the
 deterministic fallback really engages. The saved output
 ([tests/proof_of_execution.txt](tests/proof_of_execution.txt)) holds two runs:
 the normal one, and the same suite in a copy of the project with no `.env` and
-every key stripped from the environment — same 48 passes.
+every key stripped from the environment — same 61 passes.
 
 | File | Covers |
 |---|---|
 | `test_github_tools.py` | 8 valid URL forms and 6 invalid ones, `RepoNotFound` on 404, `MissingToken` with no token |
-| `test_osv_tools.py` | `parse_requirements` ignoring `>=`/`~=`/`-e`/`git+`/comments; one package failing does not stop the rest |
+| `test_osv_tools.py` | `parse_requirements` ignoring `>=`/`~=`/`-e`/`git+`/comments; one package failing does not stop the rest; `fixed_version` takes the highest fix across all vulns, ignores git commit hashes, and stays `None` without ecosystem fix data |
 | `test_secret_tools.py` | all five secret patterns, correct masking, zero false positives |
-| `test_agents.py` | per agent: the finding shape, the model path, and the fallback path |
-| `test_report.py` | severity ordering before any model call; "all clean" and "no findings" produce a valid report **with the LLM never called** (an explicit assertion fails if it is) |
+| `test_agents.py` | per agent: the finding shape, the model path, and the fallback path; `fixed_version` rides along on vulnerability findings and never on secrets; issue numbers the model invented are dropped |
+| `test_report.py` | severity ordering before any model call; "all clean" and "no findings" produce a valid report **with the LLM never called** (an explicit assertion fails if it is); the exact upgrade line in both languages, surviving an LLM failure, and never duplicated by a model recommendation |
 
 The end-to-end proof — the real GitHub API, the real OSV.dev, the real model,
 over real HTTP — is a separate script, since it needs keys and a running server:
@@ -428,7 +428,7 @@ backend/
     osv_tools.py       parse_requirements, check_vulnerabilities
     secret_tools.py    scan_secrets
 ui/app.py              Streamlit — HTTP only, never imports the graph
-tests/                 48 tests, no keys, no network, plus the saved proofs
+tests/                 61 tests, no keys, no network, plus the saved proofs
 scripts/               check_llm, check_api, smoke_graph, and per-tool manual runners
 docs/                  ARCHITECTURE.md, PRODUCT.md, architecture.mmd
 ```
